@@ -17,6 +17,8 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 
 ### Maven Dependency
 
+Note, not yet published to maven central!  Hang in there...
+
 ```xml
 <dependency>
     <groupId>org.acp</groupId>
@@ -305,9 +307,3 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 - **Issues**: https://github.com/acp-java/acp-java-sdk/issues
 - **Source Code**: https://github.com/acp-java/acp-java-sdk
 
-## Authors
-
-- **Mark Pollack** - [@markpollack](https://github.com/markpollack)
-- **Christian Tzolov** - [@tzolov](https://github.com/tzolov)
-
-Extracted from [Spring AI Agents](https://github.com/spring-ai-community/spring-ai-agents) project.
