@@ -336,10 +336,6 @@ This release provides client-side ACP support:
 - ❌ Agent transport implementations
 - ❌ Agent examples and documentation
 
-**Workaround:** If you need to build ACP agents in Java today, consider:
-- Using the [Kotlin SDK](https://github.com/agentclientprotocol/kotlin-sdk) which has full agent support and runs on the JVM
-- Waiting for v0.9.0 agent support in this SDK (planned for Q1 2026)
-
 ## Roadmap
 
 ### v0.8.0 (Current) - Client SDK ✅
