@@ -179,7 +179,7 @@ client.close();
 
 ### Core Types (`com.agentclientprotocol.sdk.spec`)
 
-- **`AcpSchema`** - Complete ACP protocol type definitions (1071 lines)
+- **`AcpSchema`** - Complete ACP protocol type definitions
   - `InitializeRequest/Response` - Protocol handshake
   - `NewSessionRequest/Response` - Session management
   - `PromptRequest/Response` - Agent prompting
@@ -245,87 +245,28 @@ client.close();
 
 ## Dependencies
 
-### Core Dependencies
 - **Project Reactor** (`reactor-core`) - Reactive programming
 - **Jackson** (`jackson-databind`) - JSON processing
-- **MCP JSON** (`mcp-json`, `mcp-json-jackson2`) - JSON utilities (reused from Model Context Protocol SDK)
+- **MCP JSON** (`mcp-json`, `mcp-json-jackson2`) - JSON utilities from Model Context Protocol SDK
 - **SLF4J** - Logging facade
-
-### Test Dependencies
-- JUnit 5, AssertJ, Mockito, Logback
-
-### About MCP JSON Dependency
-
-This library reuses JSON utilities from the [Model Context Protocol (MCP) Java SDK](https://github.com/modelcontextprotocol/java-sdk). Both MCP and ACP use JSON-RPC 2.0 for communication, so sharing JSON serialization utilities reduces code duplication.
-
-If you prefer not to depend on MCP SDK, you can replace this with direct Jackson usage in a future version.
-
-## Project Structure
-
-```
-acp-java-sdk/
-├── src/
-│   ├── main/java/com/agentclientprotocol/sdk/
-│   │   ├── spec/           Protocol definitions and types
-│   │   ├── client/         High-level client implementations
-│   │   └── util/           Utility classes
-│   └── test/
-│       ├── java/com/agentclientprotocol/sdk/   Integration tests
-│       └── resources/      Test configuration
-├── pom.xml                 Maven configuration
-├── LICENSE                 Apache License 2.0
-└── README.md              This file
-```
-
-## Scope and Limitations
-
-### ✅ What's Included (v0.8.0)
-
-This release provides client-side ACP support:
-
-- **All ACP Client Methods** - `initialize`, `authenticate`, `session/new`, `session/load`, `prompt`, `cancel`
-- **All ACP Types** - Complete schema with 1,069 lines of protocol definitions
-- **Request Handlers** - Handle agent requests for file operations, permissions, terminal access
-- **Streaming Updates** - Receive `session/update` notifications with agent thoughts, tool calls, plans
-- **Async & Sync APIs** - Choose between reactive (`Mono`-based) or blocking APIs
-- **Stdio Transport** - Process management and JSON-RPC framing
-- **Documentation** - Javadoc, examples, and this README
-
-### ❌ What's Not Included (Coming in v0.9.0)
-
-**Agent-side implementation** for building ACP agents in Java:
-
-- ❌ Agent factory and builder (`AcpAgent.async()`, `AcpAgent.sync()`)
-- ❌ Agent session management (`AcpAgentSession`)
-- ❌ Agent request handlers (handling `initialize`, `prompt`, etc.)
-- ❌ Outbound client requests (agent calling client methods)
-- ❌ Agent transport implementations
-- ❌ Agent examples and documentation
 
 ## Roadmap
 
-### v0.8.0 (Current) - Client SDK ✅
-- ✅ ACP client implementation
-- ✅ Async and sync client APIs
-- ✅ Stdio transport
-- ✅ Full protocol type definitions
-- ✅ Build configuration for Maven Central
+### v0.8.0 (Current) - Client SDK
+- Client implementation with async and sync APIs
+- Stdio transport
+- Complete protocol type definitions
 
 ### v0.9.0 (Planned - Q1 2026) - Agent SDK
-- [ ] Agent-side implementation (`AcpAsyncAgent`, `AcpSyncAgent`)
-- [ ] Agent session management
-- [ ] Agent request handlers
-- [ ] Agent transport providers (stdio, HTTP)
-- [ ] Agent examples and documentation
-- [ ] Complete parity with TypeScript/Python/Kotlin/Rust SDKs
-- [ ] Improved unit test coverage
+- Agent-side implementation
+- Agent session management
+- Agent request handlers
+- Agent transport providers
 
 ### v1.0.0 (GA - Q2 2026)
-- [ ] Stable client and agent implementations
-- [ ] Test coverage (80%+)
-- [ ] Helper utilities (content builders, tool call builders)
-- [ ] Performance optimizations
-- [ ] Documentation and examples
+- Stable client and agent implementations
+- Helper utilities
+- Performance optimizations
 
 ## License
 
