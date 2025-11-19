@@ -33,7 +33,7 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 Before using this SDK, you need:
 
 1. **Java 17 or later** - Check with `java -version`
-2. **Maven 3.6+ or Gradle 7+** - For dependency management
+2. **Maven 3.6+** - This project uses Maven with the included wrapper (`./mvnw`)
 3. **An ACP-compliant agent** - For example:
    - [Google Gemini CLI](https://www.npmjs.com/package/@google/gemini-cli): `npm install -g @google/gemini-cli`
    - Set `GEMINI_API_KEY` environment variable with your API key
