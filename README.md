@@ -313,7 +313,7 @@ acp-java-sdk/
 
 ## Scope and Limitations
 
-### ✅ What's Included (v0.1.0)
+### ✅ What's Included (v0.8.0)
 
 This release provides client-side ACP support:
 
