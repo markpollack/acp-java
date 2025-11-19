@@ -327,13 +327,6 @@ This release provides client-side ACP support:
 - [ ] Performance optimizations
 - [ ] Documentation and examples
 
-### Future Releases
-- [ ] Additional transport options (HTTP, WebSocket)
-- [ ] Enhanced observability (metrics, tracing)
-- [ ] Spring Boot integration
-- [ ] GraalVM native image support
-- [ ] Kotlin DSL for builder APIs
-
 ## Contributing
 
 Contributions are welcome! Please:
