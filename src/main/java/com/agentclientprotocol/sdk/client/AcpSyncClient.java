@@ -2,12 +2,12 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.client;
+package com.agentclientprotocol.sdk.client;
 
 import java.time.Duration;
 
-import org.acp.spec.AcpSchema;
-import org.acp.util.Assert;
+import com.agentclientprotocol.sdk.spec.AcpSchema;
+import com.agentclientprotocol.sdk.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

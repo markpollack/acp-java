@@ -2,7 +2,7 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.client;
+package com.agentclientprotocol.sdk.client;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -11,12 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import io.modelcontextprotocol.json.McpJsonMapper;
-import org.acp.spec.AcpClientSession;
-import org.acp.spec.AcpClientTransport;
-import org.acp.spec.AcpSchema;
-import org.acp.spec.AcpSession;
-import org.acp.util.Assert;
+import com.agentclientprotocol.sdk.spec.AcpClientSession;
+import com.agentclientprotocol.sdk.spec.AcpClientTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema;
+import com.agentclientprotocol.sdk.spec.AcpSession;
+import com.agentclientprotocol.sdk.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;

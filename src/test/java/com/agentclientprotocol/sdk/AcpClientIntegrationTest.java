@@ -2,7 +2,7 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp;
+package com.agentclientprotocol.sdk;
 
 import java.time.Duration;
 import java.util.List;
@@ -10,11 +10,11 @@ import java.util.List;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.acp.client.AcpAsyncClient;
-import org.acp.client.AcpClient;
-import org.acp.client.transport.AgentParameters;
-import org.acp.client.transport.StdioAcpClientTransport;
-import org.acp.spec.AcpSchema;
+import com.agentclientprotocol.sdk.client.AcpAsyncClient;
+import com.agentclientprotocol.sdk.client.AcpClient;
+import com.agentclientprotocol.sdk.client.transport.AgentParameters;
+import com.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;

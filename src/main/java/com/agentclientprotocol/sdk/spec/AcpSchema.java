@@ -2,14 +2,12 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.spec;
+package com.agentclientprotocol.sdk.spec;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

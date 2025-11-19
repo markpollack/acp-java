@@ -2,7 +2,7 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.spec;
+package com.agentclientprotocol.sdk.spec;
 
 import io.modelcontextprotocol.json.TypeRef;
 import reactor.core.publisher.Mono;

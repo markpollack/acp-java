@@ -2,15 +2,12 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.client;
-
-import java.time.Duration;
+package com.agentclientprotocol.sdk.client;
 
 import io.modelcontextprotocol.json.TypeRef;
-import org.acp.spec.AcpClientSession;
-import org.acp.spec.AcpSchema;
-import org.acp.spec.AcpSession;
-import org.acp.util.Assert;
+import com.agentclientprotocol.sdk.spec.AcpSchema;
+import com.agentclientprotocol.sdk.spec.AcpSession;
+import com.agentclientprotocol.sdk.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;

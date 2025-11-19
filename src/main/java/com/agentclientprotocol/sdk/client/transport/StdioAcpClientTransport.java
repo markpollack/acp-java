@@ -2,7 +2,7 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.client.transport;
+package com.agentclientprotocol.sdk.client.transport;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -17,10 +17,10 @@ import java.util.function.Function;
 
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.json.McpJsonMapper;
-import org.acp.spec.AcpClientTransport;
-import org.acp.spec.AcpSchema;
-import org.acp.spec.AcpSchema.JSONRPCMessage;
-import org.acp.util.Assert;
+import com.agentclientprotocol.sdk.spec.AcpClientTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema;
+import com.agentclientprotocol.sdk.spec.AcpSchema.JSONRPCMessage;
+import com.agentclientprotocol.sdk.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;

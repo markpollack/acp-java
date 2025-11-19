@@ -2,7 +2,7 @@
  * Copyright 2025-2025 the original author or authors.
  */
 
-package org.acp.client.transport;
+package com.agentclientprotocol.sdk.client.transport;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.acp.util.Assert;
+import com.agentclientprotocol.sdk.util.Assert;
 
 /**
  * Agent parameters for stdio client - configuration for launching an ACP agent process.

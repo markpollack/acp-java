@@ -4,7 +4,7 @@
  * Adapted from MCP Java SDK
  */
 
-package org.acp.util;
+package com.agentclientprotocol.sdk.util;
 
 /**
  * Assertion utility class that assists in validating arguments. Useful for identifying
