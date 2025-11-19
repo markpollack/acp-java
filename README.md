@@ -34,7 +34,7 @@ Note, not yet published to maven central!  Hang in there...
 
 ```xml
 <dependency>
-    <groupId>org.acp</groupId>
+    <groupId>com.agentclientprotocol</groupId>
     <artifactId>acp-java-sdk</artifactId>
     <version>0.8.0</version>
 </dependency>
@@ -154,7 +154,7 @@ client.
 
 ## API Components
 
-### Core Types (`org.acp.spec`)
+### Core Types (`com.agentclientprotocol.sdk.spec`)
 
 - **`AcpSchema`** - Complete ACP protocol type definitions (1071 lines)
   - `InitializeRequest/Response` - Protocol handshake
@@ -171,7 +171,7 @@ client.
 - **`AcpSession`** - Session interface
 - **`AcpTransport`** - Transport abstraction
 
-### Client Layer (`org.acp.client`)
+### Client Layer (`com.agentclientprotocol.sdk.client`)
 
 - **`AcpClient`** - Builder entry point
   - `AcpClient.async(transport)` - Create async client builder
@@ -186,7 +186,7 @@ client.
   - Blocking API for simpler code
   - Wraps `AcpAsyncClient`
 
-### Transport (`org.acp.client.transport`)
+### Transport (`com.agentclientprotocol.sdk.client.transport`)
 
 - **`StdioAcpClientTransport`** - STDIO transport
   - Manages agent process lifecycle
@@ -298,12 +298,12 @@ If you prefer not to depend on MCP SDK, you can replace this with direct Jackson
 ```
 acp-java-sdk/
 ├── src/
-│   ├── main/java/org/acp/
+│   ├── main/java/com/agentclientprotocol/sdk/
 │   │   ├── spec/           Protocol definitions and types
 │   │   ├── client/         High-level client implementations
 │   │   └── util/           Utility classes
 │   └── test/
-│       ├── java/org/acp/   Integration tests
+│       ├── java/com/agentclientprotocol/sdk/   Integration tests
 │       └── resources/      Test configuration
 ├── pom.xml                 Maven configuration
 ├── LICENSE                 Apache License 2.0

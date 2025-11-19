@@ -6,7 +6,7 @@
         </encoder>
     </appender>
 
-    <logger name="org.acp" level="DEBUG"/>
+    <logger name="com.agentclientprotocol.sdk" level="DEBUG"/>
     <logger name="reactor" level="INFO"/>
 
     <root level="INFO">
