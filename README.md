@@ -40,7 +40,7 @@ Before using this SDK, you need:
 
 ### Maven Dependency
 
-Note, not yet published to maven central!  Hang in there...
+> **Note:** Not yet published to Maven Central. For now, build and install locally using `./mvnw install`.
 
 ```xml
 <dependency>
