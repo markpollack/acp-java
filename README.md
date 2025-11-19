@@ -28,6 +28,16 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 
 ## Quick Start
 
+### Prerequisites
+
+Before using this SDK, you need:
+
+1. **Java 17 or later** - Check with `java -version`
+2. **Maven 3.6+ or Gradle 7+** - For dependency management
+3. **An ACP-compliant agent** - For example:
+   - [Google Gemini CLI](https://www.npmjs.com/package/@google/gemini-cli): `npm install -g @google/gemini-cli`
+   - Set `GEMINI_API_KEY` environment variable with your API key
+
 ### Maven Dependency
 
 Note, not yet published to maven central!  Hang in there...
@@ -49,46 +59,47 @@ import com.agentclientprotocol.sdk.client.AcpAsyncClient;
 import com.agentclientprotocol.sdk.client.AcpClient;
 import com.agentclientprotocol.sdk.client.transport.AgentParameters;
 import com.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema.*;
+import io.modelcontextprotocol.json.McpJsonMapper;
+import reactor.core.publisher.Mono;
+import java.time.Duration;
+import java.util.List;
 
 // Create agent parameters for Gemini CLI
 AgentParameters params = AgentParameters.builder("gemini")
-        .arg("--experimental-acp")
-        .build();
+    .arg("--experimental-acp")
+    .build();
 
-        // Create transport
-        McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
-        StdioAcpClientTransport transport = new StdioAcpClientTransport(params, jsonMapper);
+// Create transport
+McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
+StdioAcpClientTransport transport = new StdioAcpClientTransport(params, jsonMapper);
 
-        // Build async client with session update consumer
-        AcpAsyncClient client = AcpClient.async(transport)
-                .requestTimeout(Duration.ofSeconds(30))
-                .sessionUpdateConsumer(notification -> {
-                    System.out.println("Agent update: " + notification.update());
-                    return Mono.empty();
-                })
-                .build();
+// Build async client with session update consumer
+AcpAsyncClient client = AcpClient.async(transport)
+    .requestTimeout(Duration.ofSeconds(30))
+    .sessionUpdateConsumer(notification -> {
+        System.out.println("Agent update: " + notification.update());
+        return Mono.empty();
+    })
+    .build();
 
-        // Initialize the agent
-        InitializeResponse initResponse = client
-                .initialize(new InitializeRequest(1, new ClientCapabilities()))
-                .block();
+// Initialize the agent
+InitializeResponse initResponse = client
+    .initialize(new InitializeRequest(1, new ClientCapabilities()))
+    .block();
 
-        // Create a new session
-        NewSessionResponse session = client
-                .newSession(new NewSessionRequest("/path/to/workspace", List.of()))
-                .block();
+// Create a new session
+NewSessionResponse session = client
+    .newSession(new NewSessionRequest("/path/to/workspace", List.of()))
+    .block();
 
-        // Send a prompt
-        PromptResponse response = client
-                .prompt(session.sessionId(), "Create a README.md file")
-                .block();
+// Send a prompt
+PromptResponse response = client
+    .prompt(session.sessionId(), "Create a README.md file")
+    .block();
 
 // Close gracefully
-client.
-
-        closeGracefully().
-
-        block();
+client.closeGracefully().block();
 ```
 
 #### Sync Client (Simpler API)
@@ -96,29 +107,41 @@ client.
 ```java
 import com.agentclientprotocol.sdk.client.AcpClient;
 import com.agentclientprotocol.sdk.client.AcpSyncClient;
+import com.agentclientprotocol.sdk.client.transport.AgentParameters;
+import com.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema.*;
+import io.modelcontextprotocol.json.McpJsonMapper;
+import java.time.Duration;
+import java.util.List;
+
+// Create transport (same as async example)
+AgentParameters params = AgentParameters.builder("gemini")
+    .arg("--experimental-acp")
+    .build();
+McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
+StdioAcpClientTransport transport = new StdioAcpClientTransport(params, jsonMapper);
 
 // Create sync client (wraps async client)
 AcpSyncClient client = AcpClient.sync(transport)
-        .requestTimeout(Duration.ofSeconds(30))
-        .build();
+    .requestTimeout(Duration.ofSeconds(30))
+    .build();
 
-        // Same API but blocking by default
-        InitializeResponse initResponse = client.initialize(
-                new InitializeRequest(1, new ClientCapabilities())
-        );
+// Same API but blocking by default
+InitializeResponse initResponse = client.initialize(
+    new InitializeRequest(1, new ClientCapabilities())
+);
 
-        NewSessionResponse session = client.newSession(
-                new NewSessionRequest("/path/to/workspace", List.of())
-        );
+NewSessionResponse session = client.newSession(
+    new NewSessionRequest("/path/to/workspace", List.of())
+);
 
-        PromptResponse response = client.prompt(
-                session.sessionId(),
-                "Create a README.md file"
-        );
+PromptResponse response = client.prompt(
+    session.sessionId(),
+    "Create a README.md file"
+);
 
-client.
-
-        close();
+// Close the client
+client.close();
 ```
 
 ## Architecture
@@ -345,8 +368,6 @@ To add new tests, follow these guidelines:
 3. Use `AssertJ` for fluent assertions
 4. Place integration tests in `src/test/java` with `@Disabled` annotation
 5. Update `AcpTestFixtures` when adding reusable test data
-
-See `TEST_IMPLEMENTATION_PROGRESS.md` for detailed test implementation tracking and patterns.
 
 ## Publishing to Maven Central
 

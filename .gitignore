@@ -1,16 +1,55 @@
-# Compiled class file
+### Maven/Gradle Builds ###
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+.gradle
+out
+/.gradletasknamecache
+**/*.flattened-pom.xml
+
+### IDE - Eclipse/STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+com.springsource.sts.config.flow.prefs
+
+### IDE - IntelliJ IDEA ###
+.idea/
+*.iml
+*.ipr
+*.iws
+
+### IDE - NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### IDE - VS Code ###
+.vscode/
+vscode/
+settings.json
+
+### Logs and Databases ###
+*.log
+build.log
+shell.log
+derby.log
+
+### Compiled Files ###
 *.class
 
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
+### Package Files ###
 *.jar
 *.war
 *.nar
@@ -19,16 +58,11 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+### Other ###
+.DS_Store
+*.swp
 hs_err_pid*
 replay_pid*
 
-# Maven
-target/
-
-# IntelliJ IDEA
-.idea/
-*.iml
-
-# Planning and internal documentation
+### Planning and Internal Documentation ###
 plans/
