@@ -243,40 +243,6 @@ client.close();
 ./mvnw install -Prelease
 ```
 
-## Publishing to Maven Central
-
-This project is configured for publishing to Maven Central Portal using the modern `central-publishing-maven-plugin`.
-
-### Prerequisites
-
-1. **Maven Central account** - [Create account](https://central.sonatype.com/)
-2. **GPG key** - [Generate GPG key](https://central.sonatype.org/publish/requirements/gpg/)
-3. **Credentials** - Add to `~/.m2/settings.xml`:
-
-```xml
-<settings>
-    <servers>
-        <server>
-            <id>central</id>
-            <username>your-central-username</username>
-            <password>your-central-password</password>
-        </server>
-    </servers>
-</settings>
-```
-
-### Publishing
-
-```bash
-# Deploy to Maven Central Portal (staging repository)
-mvn clean deploy -Prelease
-
-# With auto-publish enabled (configured in pom.xml)
-# Artifacts will be automatically released after validation
-```
-
-See [Maven Central Portal Documentation](https://central.sonatype.org/publish/publish-portal-maven/) for details.
-
 ## Dependencies
 
 ### Core Dependencies
