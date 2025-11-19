@@ -1,17 +1,30 @@
-# ACP Java SDK
+# ACP Java Client SDK
 
-Pure Java implementation of the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) specification.
+Pure Java **client-side** implementation of the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) specification.
+
+> **Note:** This is a **client-only** SDK for v0.1.0. It enables Java applications to **connect to** ACP-compliant agents.
+> Agent-side implementation (for **building** ACP agents in Java) is planned for v0.2.0. See [Roadmap](#roadmap) below.
 
 ## Overview
 
-The Agent Client Protocol (ACP) standardizes communication between code editors and coding agents. This library provides a pure Java implementation of the ACP client, enabling Java applications to interact with ACP-compliant coding agents.
+The Agent Client Protocol (ACP) standardizes communication between code editors and coding agents. This library provides a Java client implementation, enabling Java applications to interact with ACP-compliant coding agents like Google Gemini, Anthropic Claude, and others.
+
+**What You Can Build:**
+- Desktop applications that connect to ACP agents
+- IDE plugins that integrate with coding agents
+- CLI tools that orchestrate agent workflows
+- Backend services that use agents for code generation
+
+**What This Release Includes:**
+- **Client-Side Only** - Connect to and interact with existing ACP agents
+- **Not Included Yet** - Building your own ACP agents in Java (coming in v0.2.0)
 
 **Key Features:**
 - **Pure Java** - No Kotlin dependencies, clean Java 17 API
 - **Reactive** - Built on Project Reactor for non-blocking I/O
-- **Type-Safe** - Comprehensive protocol type definitions
+- **Type-Safe** - Complete protocol type definitions (all ACP v1 types)
 - **Async & Sync** - Both asynchronous (Mono-based) and synchronous client APIs
-- **Transport Agnostic** - STDIO transport included, extensible for other transports
+- **Stdio Transport** - Process management and JSON-RPC message framing
 
 ## Quick Start
 
@@ -32,72 +45,80 @@ Note, not yet published to maven central!  Hang in there...
 #### Async Client (Recommended)
 
 ```java
-import org.acp.client.*;
-import org.acp.client.transport.*;
-import org.acp.spec.AcpSchema.*;
+import com.agentclientprotocol.sdk.client.AcpAsyncClient;
+import com.agentclientprotocol.sdk.client.AcpClient;
+import com.agentclientprotocol.sdk.client.transport.AgentParameters;
+import com.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
 
 // Create agent parameters for Gemini CLI
 AgentParameters params = AgentParameters.builder("gemini")
-    .arg("--experimental-acp")
-    .build();
+        .arg("--experimental-acp")
+        .build();
 
-// Create transport
-McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
-StdioAcpClientTransport transport = new StdioAcpClientTransport(params, jsonMapper);
+        // Create transport
+        McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
+        StdioAcpClientTransport transport = new StdioAcpClientTransport(params, jsonMapper);
 
-// Build async client with session update consumer
-AcpAsyncClient client = AcpClient.async(transport)
-    .requestTimeout(Duration.ofSeconds(30))
-    .sessionUpdateConsumer(notification -> {
-        System.out.println("Agent update: " + notification.update());
-        return Mono.empty();
-    })
-    .build();
+        // Build async client with session update consumer
+        AcpAsyncClient client = AcpClient.async(transport)
+                .requestTimeout(Duration.ofSeconds(30))
+                .sessionUpdateConsumer(notification -> {
+                    System.out.println("Agent update: " + notification.update());
+                    return Mono.empty();
+                })
+                .build();
 
-// Initialize the agent
-InitializeResponse initResponse = client
-    .initialize(new InitializeRequest(1, new ClientCapabilities()))
-    .block();
+        // Initialize the agent
+        InitializeResponse initResponse = client
+                .initialize(new InitializeRequest(1, new ClientCapabilities()))
+                .block();
 
-// Create a new session
-NewSessionResponse session = client
-    .newSession(new NewSessionRequest("/path/to/workspace", List.of()))
-    .block();
+        // Create a new session
+        NewSessionResponse session = client
+                .newSession(new NewSessionRequest("/path/to/workspace", List.of()))
+                .block();
 
-// Send a prompt
-PromptResponse response = client
-    .prompt(session.sessionId(), "Create a README.md file")
-    .block();
+        // Send a prompt
+        PromptResponse response = client
+                .prompt(session.sessionId(), "Create a README.md file")
+                .block();
 
 // Close gracefully
-client.closeGracefully().block();
+client.
+
+        closeGracefully().
+
+        block();
 ```
 
 #### Sync Client (Simpler API)
 
 ```java
-import org.acp.client.*;
+import com.agentclientprotocol.sdk.client.AcpClient;
+import com.agentclientprotocol.sdk.client.AcpSyncClient;
 
 // Create sync client (wraps async client)
 AcpSyncClient client = AcpClient.sync(transport)
-    .requestTimeout(Duration.ofSeconds(30))
-    .build();
+        .requestTimeout(Duration.ofSeconds(30))
+        .build();
 
-// Same API but blocking by default
-InitializeResponse initResponse = client.initialize(
-    new InitializeRequest(1, new ClientCapabilities())
-);
+        // Same API but blocking by default
+        InitializeResponse initResponse = client.initialize(
+                new InitializeRequest(1, new ClientCapabilities())
+        );
 
-NewSessionResponse session = client.newSession(
-    new NewSessionRequest("/path/to/workspace", List.of())
-);
+        NewSessionResponse session = client.newSession(
+                new NewSessionRequest("/path/to/workspace", List.of())
+        );
 
-PromptResponse response = client.prompt(
-    session.sessionId(),
-    "Create a README.md file"
-);
+        PromptResponse response = client.prompt(
+                session.sessionId(),
+                "Create a README.md file"
+        );
 
-client.close();
+client.
+
+        close();
 ```
 
 ## Architecture
@@ -289,6 +310,64 @@ acp-java-sdk/
 └── README.md              This file
 ```
 
+## Scope and Limitations
+
+### ✅ What's Included (v0.1.0)
+
+This release provides client-side ACP support:
+
+- **All ACP Client Methods** - `initialize`, `authenticate`, `session/new`, `session/load`, `prompt`, `cancel`
+- **All ACP Types** - Complete schema with 1,069 lines of protocol definitions
+- **Request Handlers** - Handle agent requests for file operations, permissions, terminal access
+- **Streaming Updates** - Receive `session/update` notifications with agent thoughts, tool calls, plans
+- **Async & Sync APIs** - Choose between reactive (`Mono`-based) or blocking APIs
+- **Stdio Transport** - Process management and JSON-RPC framing
+- **Documentation** - Javadoc, examples, and this README
+
+### ❌ What's Not Included (Coming in v0.2.0)
+
+**Agent-side implementation** for building ACP agents in Java:
+
+- ❌ Agent factory and builder (`AcpAgent.async()`, `AcpAgent.sync()`)
+- ❌ Agent session management (`AcpAgentSession`)
+- ❌ Agent request handlers (handling `initialize`, `prompt`, etc.)
+- ❌ Outbound client requests (agent calling client methods)
+- ❌ Agent transport implementations
+- ❌ Agent examples and documentation
+
+**Workaround:** If you need to build ACP agents in Java today, consider:
+- Using the [Kotlin SDK](https://github.com/agentclientprotocol/kotlin-sdk) which has full agent support and runs on the JVM
+- Waiting for v0.2.0 agent support in this SDK (planned for Q1 2025)
+
+## Roadmap
+
+### v0.1.0 (Current) - Client SDK ✅
+- ✅ ACP client implementation
+- ✅ Async and sync client APIs
+- ✅ Stdio transport
+- ✅ Full protocol type definitions
+- ✅ Build configuration for Maven Central
+
+### v0.2.0 (Planned - Q1 2025) - Agent SDK
+- [ ] Agent-side implementation (`AcpAsyncAgent`, `AcpSyncAgent`)
+- [ ] Agent session management
+- [ ] Agent request handlers
+- [ ] Agent transport providers (stdio, HTTP)
+- [ ] Agent examples and documentation
+- [ ] Complete parity with TypeScript/Python/Kotlin/Rust SDKs
+
+### v0.3.0 (Future) - Enhanced Features
+- [ ] Helper utilities (content builders, tool call builders)
+- [ ] Additional transport options (HTTP, WebSocket)
+- [ ] Enhanced observability (metrics, tracing)
+- [ ] Spring Boot integration
+- [ ] Performance optimizations
+
+### Long-term
+- [ ] GraalVM native image support
+- [ ] Kotlin DSL for builder APIs
+- [ ] Additional examples and tutorials
+
 ## Contributing
 
 Contributions are welcome! Please:
@@ -296,6 +375,12 @@ Contributions are welcome! Please:
 2. Create a feature branch
 3. Make your changes with tests
 4. Submit a pull request
+
+**Priority Areas for Contributions:**
+- 🔥 **Agent-side implementation** (v0.2.0 roadmap)
+- 🧪 **Unit tests** for existing components
+- 📚 **Additional examples** showing different use cases
+- 🛠️ **Helper utilities** for common patterns
 
 ## License
 

@@ -9,9 +9,9 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>ACP Java SDK</name>
-    <description>Pure Java implementation of the Agent Client Protocol (ACP) specification</description>
-    <url>https://github.com/acp-java/acp-java-sdk</url>
+    <name>ACP Java Client SDK</name>
+    <description>Java client implementation of the Agent Client Protocol (ACP) specification - enables Java applications to connect to ACP-compliant coding agents</description>
+    <url>https://github.com/agentclientprotocol/java-sdk</url>
 
     <licenses>
         <license>
