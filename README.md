@@ -327,20 +327,6 @@ This release provides client-side ACP support:
 - [ ] Performance optimizations
 - [ ] Documentation and examples
 
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Submit a pull request
-
-**Priority Areas for Contributions:**
-- 🔥 **Agent-side implementation** (v0.2.0 roadmap)
-- 🧪 **Unit tests** for existing components
-- 📚 **Additional examples** showing different use cases
-- 🛠️ **Helper utilities** for common patterns
-
 ## License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
