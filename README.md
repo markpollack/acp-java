@@ -52,7 +52,7 @@ Note, not yet published to maven central!  Hang in there...
 
 ### Basic Usage
 
-#### Async Client (Recommended)
+#### Async Client
 
 ```java
 import com.agentclientprotocol.sdk.client.AcpAsyncClient;
@@ -102,7 +102,7 @@ PromptResponse response = client
 client.closeGracefully().block();
 ```
 
-#### Sync Client (Simpler API)
+#### Sync Client
 
 ```java
 import com.agentclientprotocol.sdk.client.AcpClient;
@@ -225,26 +225,29 @@ client.close();
 
 ### Requirements
 - Java 17 or later
-- Maven 3.6 or later
+- Maven 3.6 or later (or use included Maven wrapper)
 
 ### Build Commands
 
 ```bash
 # Compile
-mvn compile
+./mvnw compile
 
-# Run tests (requires GEMINI_API_KEY)
+# Run tests
+./mvnw test
+
+# Run tests including integration test (requires GEMINI_API_KEY)
 export GEMINI_API_KEY=your-key-here
-mvn test
+./mvnw test -Dtest=AcpClientIntegrationTest
 
 # Package
-mvn package
+./mvnw package
 
 # Install to local Maven repository
-mvn install
+./mvnw install
 
 # Build with release artifacts (sources, javadoc, GPG signing)
-mvn install -Prelease
+./mvnw install -Prelease
 ```
 
 ## Testing
