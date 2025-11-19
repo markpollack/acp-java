@@ -358,11 +358,11 @@ This release provides client-side ACP support:
 - [ ] Improved unit test coverage
 
 ### v1.0.0 (GA - Q2 2026)
-- [ ] Production-hardened client and agent implementations
-- [ ] Comprehensive test coverage (80%+)
+- [ ] Stable client and agent implementations
+- [ ] Test coverage (80%+)
 - [ ] Helper utilities (content builders, tool call builders)
 - [ ] Performance optimizations
-- [ ] Complete documentation and examples
+- [ ] Documentation and examples
 
 ### Future Releases
 - [ ] Additional transport options (HTTP, WebSocket)
