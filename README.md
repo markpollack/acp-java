@@ -2,8 +2,8 @@
 
 Pure Java **client-side** implementation of the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) specification.
 
-> **Note:** This is a **client-only** SDK for v0.1.0. It enables Java applications to **connect to** ACP-compliant agents.
-> Agent-side implementation (for **building** ACP agents in Java) is planned for v0.2.0. See [Roadmap](#roadmap) below.
+> **Note:** This is a **client-only** SDK for v0.8.0. It enables Java applications to **connect to** ACP-compliant agents.
+> Agent-side implementation (for **building** ACP agents in Java) is planned for v0.9.0. See [Roadmap](#roadmap) below.
 
 ## Overview
 
@@ -17,10 +17,10 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 
 **What This Release Includes:**
 - **Client-Side Only** - Connect to and interact with existing ACP agents
-- **Not Included Yet** - Building your own ACP agents in Java (coming in v0.2.0)
+- **Not Included Yet** - Building your own ACP agents in Java (coming in v0.9.0)
 
 **Key Features:**
-- **Pure Java** - No Kotlin dependencies, clean Java 17 API
+- **Java 17** - Modern Java API
 - **Reactive** - Built on Project Reactor for non-blocking I/O
 - **Type-Safe** - Complete protocol type definitions (all ACP v1 types)
 - **Async & Sync** - Both asynchronous (Mono-based) and synchronous client APIs
@@ -36,7 +36,7 @@ Note, not yet published to maven central!  Hang in there...
 <dependency>
     <groupId>org.acp</groupId>
     <artifactId>acp-java-sdk</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.8.0</version>
 </dependency>
 ```
 
@@ -324,7 +324,7 @@ This release provides client-side ACP support:
 - **Stdio Transport** - Process management and JSON-RPC framing
 - **Documentation** - Javadoc, examples, and this README
 
-### ❌ What's Not Included (Coming in v0.2.0)
+### ❌ What's Not Included (Coming in v0.9.0)
 
 **Agent-side implementation** for building ACP agents in Java:
 
@@ -337,36 +337,39 @@ This release provides client-side ACP support:
 
 **Workaround:** If you need to build ACP agents in Java today, consider:
 - Using the [Kotlin SDK](https://github.com/agentclientprotocol/kotlin-sdk) which has full agent support and runs on the JVM
-- Waiting for v0.2.0 agent support in this SDK (planned for Q1 2025)
+- Waiting for v0.9.0 agent support in this SDK (planned for Q1 2026)
 
 ## Roadmap
 
-### v0.1.0 (Current) - Client SDK ✅
+### v0.8.0 (Current) - Client SDK ✅
 - ✅ ACP client implementation
 - ✅ Async and sync client APIs
 - ✅ Stdio transport
 - ✅ Full protocol type definitions
 - ✅ Build configuration for Maven Central
 
-### v0.2.0 (Planned - Q1 2025) - Agent SDK
+### v0.9.0 (Planned - Q1 2026) - Agent SDK
 - [ ] Agent-side implementation (`AcpAsyncAgent`, `AcpSyncAgent`)
 - [ ] Agent session management
 - [ ] Agent request handlers
 - [ ] Agent transport providers (stdio, HTTP)
 - [ ] Agent examples and documentation
 - [ ] Complete parity with TypeScript/Python/Kotlin/Rust SDKs
+- [ ] Improved unit test coverage
 
-### v0.3.0 (Future) - Enhanced Features
+### v1.0.0 (GA - Q2 2026)
+- [ ] Production-hardened client and agent implementations
+- [ ] Comprehensive test coverage (80%+)
 - [ ] Helper utilities (content builders, tool call builders)
+- [ ] Performance optimizations
+- [ ] Complete documentation and examples
+
+### Future Releases
 - [ ] Additional transport options (HTTP, WebSocket)
 - [ ] Enhanced observability (metrics, tracing)
 - [ ] Spring Boot integration
-- [ ] Performance optimizations
-
-### Long-term
 - [ ] GraalVM native image support
 - [ ] Kotlin DSL for builder APIs
-- [ ] Additional examples and tutorials
 
 ## Contributing
 
