@@ -1,29 +1,26 @@
-# ACP Java Client SDK
+# ACP Java SDK
 
-Pure Java **client-side** implementation of the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) specification.
-
-> **Note:** This is a **client-only** SDK for v0.8.0. It enables Java applications to **connect to** ACP-compliant agents.
-> Agent-side implementation (for **building** ACP agents in Java) is planned for v0.9.0. See [Roadmap](#roadmap) below.
+Pure Java implementation of the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) specification for building both clients and agents.
 
 ## Overview
 
-The Agent Client Protocol (ACP) standardizes communication between code editors and coding agents. This library provides a Java client implementation, enabling Java applications to interact with ACP-compliant coding agents like Google Gemini, Anthropic Claude, and others.
+The Agent Client Protocol (ACP) standardizes communication between code editors and coding agents. This library provides both client and agent implementations, enabling Java applications to:
+
+- **Connect to** ACP-compliant agents (Client SDK)
+- **Build** ACP-compliant agents in Java (Agent SDK)
 
 **What You Can Build:**
 - Desktop applications that connect to ACP agents
 - IDE plugins that integrate with coding agents
 - CLI tools that orchestrate agent workflows
 - Backend services that use agents for code generation
-
-**What This Release Includes:**
-- **Client-Side Only** - Connect to and interact with existing ACP agents
-- **Not Included Yet** - Building your own ACP agents in Java (coming in v0.9.0)
+- **Your own ACP-compliant coding agents in Java**
 
 **Key Features:**
 - **Java 17** - Modern Java API
 - **Reactive** - Built on Project Reactor for non-blocking I/O
 - **Type-Safe** - Complete protocol type definitions (all ACP v1 types)
-- **Async & Sync** - Both asynchronous (Mono-based) and synchronous client APIs
+- **Async & Sync** - Both asynchronous (Mono-based) and synchronous APIs
 - **Stdio Transport** - Process management and JSON-RPC message framing
 
 ## Quick Start
@@ -34,6 +31,8 @@ Before using this SDK, you need:
 
 1. **Java 17 or later** - Check with `java -version`
 2. **Maven 3.6+** - This project uses Maven with the included wrapper (`./mvnw`)
+
+For client testing:
 3. **An ACP-compliant agent** - For example:
    - [Google Gemini CLI](https://www.npmjs.com/package/@google/gemini-cli): `npm install -g @google/gemini-cli`
    - Set `GEMINI_API_KEY` environment variable with your API key
@@ -46,13 +45,15 @@ Before using this SDK, you need:
 <dependency>
     <groupId>com.agentclientprotocol</groupId>
     <artifactId>acp-java-sdk</artifactId>
-    <version>0.8.0</version>
+    <version>0.9.0</version>
 </dependency>
 ```
 
-### Basic Usage
+## Client SDK
 
-#### Async Client
+The Client SDK enables Java applications to connect to ACP-compliant agents.
+
+### Async Client
 
 ```java
 import com.agentclientprotocol.sdk.client.AcpAsyncClient;
@@ -95,14 +96,15 @@ NewSessionResponse session = client
 
 // Send a prompt
 PromptResponse response = client
-    .prompt(session.sessionId(), "Create a README.md file")
+    .prompt(new PromptRequest(session.sessionId(),
+        List.of(new TextContent("Create a README.md file"))))
     .block();
 
 // Close gracefully
 client.closeGracefully().block();
 ```
 
-#### Sync Client
+### Sync Client
 
 ```java
 import com.agentclientprotocol.sdk.client.AcpClient;
@@ -114,17 +116,17 @@ import io.modelcontextprotocol.json.McpJsonMapper;
 import java.time.Duration;
 import java.util.List;
 
-// Create transport (same as async example)
+// Create transport
 AgentParameters params = AgentParameters.builder("gemini")
     .arg("--experimental-acp")
     .build();
 McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
 StdioAcpClientTransport transport = new StdioAcpClientTransport(params, jsonMapper);
 
-// Create sync client (wraps async client)
-AcpSyncClient client = AcpClient.sync(transport)
+// Create sync client
+AcpSyncClient client = AcpClient.async(transport)
     .requestTimeout(Duration.ofSeconds(30))
-    .build();
+    .buildSync();
 
 // Same API but blocking by default
 InitializeResponse initResponse = client.initialize(
@@ -136,43 +138,167 @@ NewSessionResponse session = client.newSession(
 );
 
 PromptResponse response = client.prompt(
-    session.sessionId(),
-    "Create a README.md file"
+    new PromptRequest(session.sessionId(),
+        List.of(new TextContent("Create a README.md file")))
 );
 
 // Close the client
 client.close();
 ```
 
+## Agent SDK
+
+The Agent SDK enables building ACP-compliant agents in Java.
+
+### Async Agent
+
+```java
+import com.agentclientprotocol.sdk.agent.AcpAgent;
+import com.agentclientprotocol.sdk.agent.AcpAsyncAgent;
+import com.agentclientprotocol.sdk.agent.transport.StdioAcpAgentTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema.*;
+import io.modelcontextprotocol.json.McpJsonMapper;
+import reactor.core.publisher.Mono;
+import java.time.Duration;
+import java.util.List;
+
+// Create transport (reads from stdin, writes to stdout)
+McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
+StdioAcpAgentTransport transport = new StdioAcpAgentTransport(jsonMapper);
+
+// Build async agent with handlers
+AcpAsyncAgent agent = AcpAgent.async(transport)
+    .requestTimeout(Duration.ofSeconds(60))
+    .initializeHandler(request -> {
+        return Mono.just(new InitializeResponse(
+            1,
+            new AgentCapabilities(true, null, null),
+            List.of()
+        ));
+    })
+    .newSessionHandler(request -> {
+        String sessionId = java.util.UUID.randomUUID().toString();
+        return Mono.just(new NewSessionResponse(sessionId, null, null));
+    })
+    .promptHandler((request, updater) -> {
+        // Send streaming updates during processing
+        return updater.sendUpdate(request.sessionId(),
+                new AgentThoughtChunk("agent_thought_chunk",
+                    new TextContent("Analyzing request...")))
+            .then(updater.sendUpdate(request.sessionId(),
+                new AgentMessageChunk("agent_message_chunk",
+                    new TextContent("I'll help you with that."))))
+            .then(Mono.just(new PromptResponse(StopReason.END_TURN)));
+    })
+    .cancelHandler(notification -> {
+        System.err.println("Cancelled: " + notification.sessionId());
+        return Mono.empty();
+    })
+    .build();
+
+// Start the agent
+agent.start().block();
+
+// Agent runs until client disconnects or shutdown signal
+// ...
+
+// Graceful shutdown
+agent.closeGracefully().block();
+```
+
+### Agent with Client Requests
+
+Agents can request file operations and permissions from the client:
+
+```java
+AcpAsyncAgent agent = AcpAgent.async(transport)
+    .initializeHandler(request -> Mono.just(
+        new InitializeResponse(1, new AgentCapabilities(), List.of())
+    ))
+    .newSessionHandler(request -> Mono.just(
+        new NewSessionResponse("session-1", null, null)
+    ))
+    .promptHandler((request, updater) -> {
+        // Read a file from the client
+        return agent.readTextFile(new ReadTextFileRequest(
+                request.sessionId(), "/src/Main.java", null, null))
+            .flatMap(fileResponse -> {
+                String content = fileResponse.content();
+                // Process the file...
+                return updater.sendUpdate(request.sessionId(),
+                    new AgentMessageChunk("agent_message_chunk",
+                        new TextContent("Read file: " + content.length() + " chars")));
+            })
+            .then(Mono.just(new PromptResponse(StopReason.END_TURN)));
+    })
+    .build();
+```
+
+### Sync Agent
+
+```java
+import com.agentclientprotocol.sdk.agent.AcpAgent;
+import com.agentclientprotocol.sdk.agent.AcpSyncAgent;
+import com.agentclientprotocol.sdk.agent.transport.StdioAcpAgentTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema.*;
+import io.modelcontextprotocol.json.McpJsonMapper;
+import reactor.core.publisher.Mono;
+import java.util.List;
+
+// Create transport
+McpJsonMapper jsonMapper = McpJsonMapper.getDefault();
+StdioAcpAgentTransport transport = new StdioAcpAgentTransport(jsonMapper);
+
+// Build sync agent
+AcpSyncAgent agent = AcpAgent.sync(transport)
+    .initializeHandler(request -> Mono.just(
+        new InitializeResponse(1, new AgentCapabilities(), List.of())
+    ))
+    .newSessionHandler(request -> Mono.just(
+        new NewSessionResponse("session-1", null, null)
+    ))
+    .promptHandler((request, updater) -> Mono.just(
+        new PromptResponse(StopReason.END_TURN)
+    ))
+    .build();
+
+// Start the agent (blocking)
+agent.start();
+
+// Use blocking methods for client requests
+ReadTextFileResponse file = agent.readTextFile(
+    new ReadTextFileRequest("session-1", "/path/to/file.txt", null, null)
+);
+
+// Close
+agent.close();
+```
+
 ## Architecture
 
 ```
-┌─────────────────────────────────────┐
-│  Java Application                   │
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│  AcpAsyncClient / AcpSyncClient     │
-│  - High-level fluent API            │
-│  - Session management               │
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│  AcpClientSession                   │
-│  - JSON-RPC message handling        │
-│  - Request/response lifecycle       │
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│  StdioAcpClientTransport            │
-│  - Process management               │
-│  - STDIO communication              │
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│  ACP-compliant Agent Process        │
-│  (Gemini, Claude, etc.)             │
-└─────────────────────────────────────┘
+CLIENT SIDE                              AGENT SIDE
+┌─────────────────────────────────────┐  ┌─────────────────────────────────────┐
+│  Java Application                   │  │  Your ACP Agent                     │
+└────────────┬────────────────────────┘  └────────────┬────────────────────────┘
+             │                                        │
+┌────────────▼────────────────────────┐  ┌────────────▼────────────────────────┐
+│  AcpAsyncClient / AcpSyncClient     │  │  AcpAsyncAgent / AcpSyncAgent       │
+│  - High-level fluent API            │  │  - Handler registration             │
+│  - Session management               │  │  - Session updates                  │
+└────────────┬────────────────────────┘  └────────────┬────────────────────────┘
+             │                                        │
+┌────────────▼────────────────────────┐  ┌────────────▼────────────────────────┐
+│  AcpClientSession                   │  │  AcpAgentSession                    │
+│  - JSON-RPC message handling        │  │  - Single-turn enforcement          │
+│  - Request/response lifecycle       │  │  - Bidirectional requests           │
+└────────────┬────────────────────────┘  └────────────┬────────────────────────┘
+             │                                        │
+┌────────────▼────────────────────────┐  ┌────────────▼────────────────────────┐
+│  StdioAcpClientTransport            │  │  StdioAcpAgentTransport             │
+│  - Spawns agent process             │◄─►│  - Reads from stdin                 │
+│  - STDIO communication              │  │  - Writes to stdout                 │
+└─────────────────────────────────────┘  └─────────────────────────────────────┘
 ```
 
 ## API Components
@@ -186,40 +312,22 @@ client.close();
   - `SessionNotification` - Agent updates
   - All content types, capabilities, and enums
 
-- **`AcpClientSession`** - Low-level session implementation
-  - JSON-RPC 2.0 message handling
-  - Request/response lifecycle management
-  - Notification processing
-
-- **`AcpSession`** - Session interface
+- **`AcpClientSession`** / **`AcpAgentSession`** - Session implementations
 - **`AcpTransport`** - Transport abstraction
 
 ### Client Layer (`com.agentclientprotocol.sdk.client`)
 
 - **`AcpClient`** - Builder entry point
-  - `AcpClient.async(transport)` - Create async client builder
-  - `AcpClient.sync(transport)` - Create sync client builder
+- **`AcpAsyncClient`** - Reactive async client (Mono-based)
+- **`AcpSyncClient`** - Synchronous client (blocking)
+- **`StdioAcpClientTransport`** - STDIO transport (spawns agent process)
 
-- **`AcpAsyncClient`** - Reactive async client
-  - All operations return `Mono<T>`
-  - Composable with Reactor pipelines
-  - Non-blocking I/O
+### Agent Layer (`com.agentclientprotocol.sdk.agent`)
 
-- **`AcpSyncClient`** - Synchronous client
-  - Blocking API for simpler code
-  - Wraps `AcpAsyncClient`
-
-### Transport (`com.agentclientprotocol.sdk.client.transport`)
-
-- **`StdioAcpClientTransport`** - STDIO transport
-  - Manages agent process lifecycle
-  - Handles stdin/stdout communication
-  - Graceful shutdown with SIGTERM
-
-- **`AgentParameters`** - Process configuration
-  - Command and arguments
-  - Environment variables
-  - Working directory
+- **`AcpAgent`** - Builder entry point
+- **`AcpAsyncAgent`** - Reactive async agent (Mono-based)
+- **`AcpSyncAgent`** - Synchronous agent (blocking)
+- **`StdioAcpAgentTransport`** - STDIO transport (reads stdin/writes stdout)
 
 ## Building
 
@@ -233,6 +341,9 @@ client.close();
 # Compile
 ./mvnw compile
 
+# Run tests
+./mvnw test
+
 # Package
 ./mvnw package
 
@@ -241,6 +352,22 @@ client.close();
 
 # Build with release artifacts (sources, javadoc, GPG signing)
 ./mvnw install -Prelease
+```
+
+## Testing
+
+The SDK includes comprehensive tests:
+
+- **Unit tests** - Fast, isolated tests for all components
+- **Integration tests** - Full client-agent communication tests
+- **Mock utilities** - `MockAcpAgent` and `MockAcpClient` for testing
+
+```bash
+# Run all tests
+./mvnw test
+
+# Run specific test class
+./mvnw test -Dtest=InMemoryClientAgentTest
 ```
 
 ## Dependencies
@@ -252,18 +379,15 @@ client.close();
 
 ## Roadmap
 
-### v0.8.0 (Current) - Client SDK
+### v0.9.0 (Current) - Full SDK
 - Client implementation with async and sync APIs
-- Stdio transport
+- Agent implementation with async and sync APIs
+- Stdio transport for both client and agent
 - Complete protocol type definitions
+- Integration tests and mock utilities
 
-### v0.9.0 (Planned - Q1 2026) - Agent SDK
-- Agent-side implementation
-- Agent session management
-- Agent request handlers
-- Agent transport providers
-
-### v1.0.0 (GA - Q2 2026)
-- Stable client and agent implementations
-- Helper utilities
+### v1.0.0 (Planned) - GA Release
+- WebSocket transport
+- Spring WebSocket integration module
 - Performance optimizations
+- Production hardening
