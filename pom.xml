@@ -57,6 +57,7 @@
         <jackson.version>2.18.2</jackson.version>
         <mcp-json.version>0.14.1</mcp-json.version>
         <slf4j.version>2.0.16</slf4j.version>
+        <jetty.version>12.0.14</jetty.version>
 
         <!-- Test dependency versions -->
         <junit.version>5.11.0</junit.version>
@@ -134,6 +135,20 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Jetty WebSocket Server (optional - for WebSocket agent transport) -->
+        <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>jetty-websocket-jetty-server</artifactId>
+            <version>${jetty.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>jetty-websocket-jetty-api</artifactId>
+            <version>${jetty.version}</version>
+            <optional>true</optional>
         </dependency>
 
         <!-- Test dependencies -->
