@@ -194,7 +194,16 @@ public class InMemoryTransportPair {
 			}
 			started = true;
 			return inbound.asFlux()
-				.flatMap(message -> Mono.just(message).transform(handler))
+				.flatMap(message -> Mono.just(message)
+					.transform(handler)
+					.flatMap(response -> {
+						// Send response back through outbound sink
+						Sinks.EmitResult result = outbound.tryEmitNext(response);
+						if (result.isFailure()) {
+							return Mono.error(new RuntimeException("Failed to send response: " + result));
+						}
+						return Mono.empty();
+					}))
 				.doOnError(exceptionHandler::accept)
 				.doFinally(signal -> started = false)
 				.then();
