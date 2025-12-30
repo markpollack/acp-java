@@ -21,9 +21,9 @@
     </licenses>
 
     <scm>
-        <url>https://github.com/acp-java/acp-java-sdk</url>
-        <connection>scm:git:git://github.com/acp-java/acp-java-sdk.git</connection>
-        <developerConnection>scm:git:git@github.com:acp-java/acp-java-sdk.git</developerConnection>
+        <url>https://github.com/agentclientprotocol/java-sdk</url>
+        <connection>scm:git:git://github.com/agentclientprotocol/java-sdk.git</connection>
+        <developerConnection>scm:git:git@github.com:agentclientprotocol/java-sdk.git</developerConnection>
     </scm>
 
     <developers>
