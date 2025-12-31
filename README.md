@@ -21,7 +21,23 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 - **Reactive** - Built on Project Reactor for non-blocking I/O
 - **Type-Safe** - Complete protocol type definitions (all ACP v1 types)
 - **Async & Sync** - Both asynchronous (Mono-based) and synchronous APIs
+- **Modular** - Core module with zero external dependencies; optional WebSocket module
 - **Stdio Transport** - Process management and JSON-RPC message framing
+- **WebSocket Transport** - JDK-native client, Jetty-based server (optional module)
+
+## Modules
+
+The SDK is organized into modules to minimize dependencies:
+
+| Module | Artifact | Dependencies | Description |
+|--------|----------|--------------|-------------|
+| **acp-core** | `acp-core` | Reactor, Jackson, SLF4J | Core SDK with stdio transport and WebSocket client |
+| **acp-websocket-jetty** | `acp-websocket-jetty` | acp-core + Jetty | WebSocket agent transport (server-side) |
+
+**Design Philosophy:**
+- `acp-core` has **no external server dependencies** - uses JDK-native WebSocket client
+- WebSocket *server* support requires Jetty, isolated in a separate module
+- Community can contribute alternative WebSocket modules (Netty, Undertow, etc.)
 
 ## Quick Start
 
@@ -41,10 +57,20 @@ For client testing:
 
 > **Note:** Not yet published to Maven Central. For now, build and install locally using `./mvnw install`.
 
+**For most users (stdio transport, or WebSocket client):**
 ```xml
 <dependency>
     <groupId>com.agentclientprotocol</groupId>
-    <artifactId>acp-java-sdk</artifactId>
+    <artifactId>acp-core</artifactId>
+    <version>0.9.0</version>
+</dependency>
+```
+
+**For agents accepting WebSocket connections (requires Jetty):**
+```xml
+<dependency>
+    <groupId>com.agentclientprotocol</groupId>
+    <artifactId>acp-websocket-jetty</artifactId>
     <version>0.9.0</version>
 </dependency>
 ```
