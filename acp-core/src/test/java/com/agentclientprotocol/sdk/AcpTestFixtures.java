@@ -167,7 +167,7 @@ public class AcpTestFixtures {
 	 * @return ImageContent with test image data
 	 */
 	public static AcpSchema.ImageContent createImageContent() {
-		return new AcpSchema.ImageContent("image", "base64-encoded-data", "image/png", null, null);
+		return new AcpSchema.ImageContent("image", "base64-encoded-data", "image/png", null, null, null);
 	}
 
 	/**
@@ -175,7 +175,7 @@ public class AcpTestFixtures {
 	 * @return AudioContent with test audio data
 	 */
 	public static AcpSchema.AudioContent createAudioContent() {
-		return new AcpSchema.AudioContent("audio", "base64-encoded-data", "audio/wav", null);
+		return new AcpSchema.AudioContent("audio", "base64-encoded-data", "audio/wav", null, null);
 	}
 
 	// ---------------------------

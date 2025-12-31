@@ -7,6 +7,7 @@ package com.agentclientprotocol.sdk.spec;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -192,7 +193,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record InitializeRequest(@JsonProperty("protocolVersion") Integer protocolVersion,
-			@JsonProperty("clientCapabilities") ClientCapabilities clientCapabilities) {
+			@JsonProperty("clientCapabilities") ClientCapabilities clientCapabilities,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public InitializeRequest(Integer protocolVersion, ClientCapabilities clientCapabilities) {
+			this(protocolVersion, clientCapabilities, null);
+		}
 	}
 
 	/**
@@ -202,7 +207,12 @@ public final class AcpSchema {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record InitializeResponse(@JsonProperty("protocolVersion") Integer protocolVersion,
 			@JsonProperty("agentCapabilities") AgentCapabilities agentCapabilities,
-			@JsonProperty("authMethods") List<AuthMethod> authMethods) {
+			@JsonProperty("authMethods") List<AuthMethod> authMethods,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public InitializeResponse(Integer protocolVersion, AgentCapabilities agentCapabilities,
+				List<AuthMethod> authMethods) {
+			this(protocolVersion, agentCapabilities, authMethods, null);
+		}
 	}
 
 	/**
@@ -227,7 +237,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record NewSessionRequest(@JsonProperty("cwd") String cwd,
-			@JsonProperty("mcpServers") List<McpServer> mcpServers) {
+			@JsonProperty("mcpServers") List<McpServer> mcpServers,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public NewSessionRequest(String cwd, List<McpServer> mcpServers) {
+			this(cwd, mcpServers, null);
+		}
 	}
 
 	/**
@@ -236,7 +250,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record NewSessionResponse(@JsonProperty("sessionId") String sessionId,
-			@JsonProperty("modes") SessionModeState modes, @JsonProperty("models") SessionModelState models) {
+			@JsonProperty("modes") SessionModeState modes, @JsonProperty("models") SessionModelState models,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public NewSessionResponse(String sessionId, SessionModeState modes, SessionModelState models) {
+			this(sessionId, modes, models, null);
+		}
 	}
 
 	/**
@@ -245,7 +263,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record LoadSessionRequest(@JsonProperty("sessionId") String sessionId, @JsonProperty("cwd") String cwd,
-			@JsonProperty("mcpServers") List<McpServer> mcpServers) {
+			@JsonProperty("mcpServers") List<McpServer> mcpServers,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public LoadSessionRequest(String sessionId, String cwd, List<McpServer> mcpServers) {
+			this(sessionId, cwd, mcpServers, null);
+		}
 	}
 
 	/**
@@ -254,7 +276,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record LoadSessionResponse(@JsonProperty("modes") SessionModeState modes,
-			@JsonProperty("models") SessionModelState models) {
+			@JsonProperty("models") SessionModelState models,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public LoadSessionResponse(SessionModeState modes, SessionModelState models) {
+			this(modes, models, null);
+		}
 	}
 
 	/**
@@ -263,7 +289,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record PromptRequest(@JsonProperty("sessionId") String sessionId,
-			@JsonProperty("prompt") List<ContentBlock> prompt) {
+			@JsonProperty("prompt") List<ContentBlock> prompt,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public PromptRequest(String sessionId, List<ContentBlock> prompt) {
+			this(sessionId, prompt, null);
+		}
 	}
 
 	/**
@@ -271,7 +301,11 @@ public final class AcpSchema {
 	 */
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public record PromptResponse(@JsonProperty("stopReason") StopReason stopReason) {
+	public record PromptResponse(@JsonProperty("stopReason") StopReason stopReason,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public PromptResponse(StopReason stopReason) {
+			this(stopReason, null);
+		}
 	}
 
 	/**
@@ -344,7 +378,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record SessionNotification(@JsonProperty("sessionId") String sessionId,
-			@JsonProperty("update") SessionUpdate update) {
+			@JsonProperty("update") SessionUpdate update,
+			@JsonProperty("_meta") Map<String, Object> meta) {
+		public SessionNotification(String sessionId, SessionUpdate update) {
+			this(sessionId, update, null);
+		}
 	}
 
 	/**
@@ -480,9 +518,14 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record ClientCapabilities(@JsonProperty("fs") FileSystemCapability fs,
-			@JsonProperty("terminal") Boolean terminal) {
+			@JsonProperty("terminal") Boolean terminal,
+			@JsonProperty("_meta") Map<String, Object> meta) {
 		public ClientCapabilities() {
-			this(new FileSystemCapability(), false);
+			this(new FileSystemCapability(), false, null);
+		}
+
+		public ClientCapabilities(FileSystemCapability fs, Boolean terminal) {
+			this(fs, terminal, null);
 		}
 	}
 
@@ -505,9 +548,15 @@ public final class AcpSchema {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record AgentCapabilities(@JsonProperty("loadSession") Boolean loadSession,
 			@JsonProperty("mcpCapabilities") McpCapabilities mcpCapabilities,
-			@JsonProperty("promptCapabilities") PromptCapabilities promptCapabilities) {
+			@JsonProperty("promptCapabilities") PromptCapabilities promptCapabilities,
+			@JsonProperty("_meta") Map<String, Object> meta) {
 		public AgentCapabilities() {
-			this(false, new McpCapabilities(), new PromptCapabilities());
+			this(false, new McpCapabilities(), new PromptCapabilities(), null);
+		}
+
+		public AgentCapabilities(Boolean loadSession, McpCapabilities mcpCapabilities,
+				PromptCapabilities promptCapabilities) {
+			this(loadSession, mcpCapabilities, promptCapabilities, null);
 		}
 	}
 
@@ -597,9 +646,10 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record TextContent(@JsonProperty("type") String type, @JsonProperty("text") String text,
-			@JsonProperty("annotations") Annotations annotations) implements ContentBlock {
+			@JsonProperty("annotations") Annotations annotations,
+			@JsonProperty("_meta") Map<String, Object> meta) implements ContentBlock {
 		public TextContent(String text) {
-			this("text", text, null);
+			this("text", text, null, null);
 		}
 	}
 
@@ -610,7 +660,8 @@ public final class AcpSchema {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record ImageContent(@JsonProperty("type") String type, @JsonProperty("data") String data,
 			@JsonProperty("mimeType") String mimeType, @JsonProperty("uri") String uri,
-			@JsonProperty("annotations") Annotations annotations) implements ContentBlock {
+			@JsonProperty("annotations") Annotations annotations,
+			@JsonProperty("_meta") Map<String, Object> meta) implements ContentBlock {
 	}
 
 	/**
@@ -619,8 +670,8 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record AudioContent(@JsonProperty("type") String type, @JsonProperty("data") String data,
-			@JsonProperty("mimeType") String mimeType,
-			@JsonProperty("annotations") Annotations annotations) implements ContentBlock {
+			@JsonProperty("mimeType") String mimeType, @JsonProperty("annotations") Annotations annotations,
+			@JsonProperty("_meta") Map<String, Object> meta) implements ContentBlock {
 	}
 
 	/**
@@ -631,8 +682,8 @@ public final class AcpSchema {
 	public record ResourceLink(@JsonProperty("type") String type, @JsonProperty("name") String name,
 			@JsonProperty("uri") String uri, @JsonProperty("title") String title,
 			@JsonProperty("description") String description, @JsonProperty("mimeType") String mimeType,
-			@JsonProperty("size") Long size,
-			@JsonProperty("annotations") Annotations annotations) implements ContentBlock {
+			@JsonProperty("size") Long size, @JsonProperty("annotations") Annotations annotations,
+			@JsonProperty("_meta") Map<String, Object> meta) implements ContentBlock {
 	}
 
 	/**
@@ -642,7 +693,8 @@ public final class AcpSchema {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record Resource(@JsonProperty("type") String type,
 			@JsonProperty("resource") EmbeddedResourceResource resource,
-			@JsonProperty("annotations") Annotations annotations) implements ContentBlock {
+			@JsonProperty("annotations") Annotations annotations,
+			@JsonProperty("_meta") Map<String, Object> meta) implements ContentBlock {
 	}
 
 	/**
@@ -689,7 +741,7 @@ public final class AcpSchema {
 	/**
 	 * Session update - different types of updates
 	 */
-	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "sessionUpdate")
+	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "sessionUpdate", visible = true)
 	@JsonSubTypes({ @JsonSubTypes.Type(value = UserMessageChunk.class, name = "user_message_chunk"),
 			@JsonSubTypes.Type(value = AgentMessageChunk.class, name = "agent_message_chunk"),
 			@JsonSubTypes.Type(value = AgentThoughtChunk.class, name = "agent_thought_chunk"),
@@ -708,7 +760,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record UserMessageChunk(@JsonProperty("sessionUpdate") String sessionUpdate,
-			@JsonProperty("content") ContentBlock content) implements SessionUpdate {
+			@JsonProperty("content") ContentBlock content,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
+		public UserMessageChunk(String sessionUpdate, ContentBlock content) {
+			this(sessionUpdate, content, null);
+		}
 	}
 
 	/**
@@ -717,7 +773,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record AgentMessageChunk(@JsonProperty("sessionUpdate") String sessionUpdate,
-			@JsonProperty("content") ContentBlock content) implements SessionUpdate {
+			@JsonProperty("content") ContentBlock content,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
+		public AgentMessageChunk(String sessionUpdate, ContentBlock content) {
+			this(sessionUpdate, content, null);
+		}
 	}
 
 	/**
@@ -726,7 +786,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record AgentThoughtChunk(@JsonProperty("sessionUpdate") String sessionUpdate,
-			@JsonProperty("content") ContentBlock content) implements SessionUpdate {
+			@JsonProperty("content") ContentBlock content,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
+		public AgentThoughtChunk(String sessionUpdate, ContentBlock content) {
+			this(sessionUpdate, content, null);
+		}
 	}
 
 	/**
@@ -739,7 +803,8 @@ public final class AcpSchema {
 			@JsonProperty("kind") ToolKind kind, @JsonProperty("status") ToolCallStatus status,
 			@JsonProperty("content") List<ToolCallContent> content,
 			@JsonProperty("locations") List<ToolCallLocation> locations, @JsonProperty("rawInput") Object rawInput,
-			@JsonProperty("rawOutput") Object rawOutput) implements SessionUpdate {
+			@JsonProperty("rawOutput") Object rawOutput,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
 	}
 
 	/**
@@ -764,7 +829,8 @@ public final class AcpSchema {
 			@JsonProperty("kind") ToolKind kind, @JsonProperty("status") ToolCallStatus status,
 			@JsonProperty("content") List<ToolCallContent> content,
 			@JsonProperty("locations") List<ToolCallLocation> locations, @JsonProperty("rawInput") Object rawInput,
-			@JsonProperty("rawOutput") Object rawOutput) implements SessionUpdate {
+			@JsonProperty("rawOutput") Object rawOutput,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
 	}
 
 	/**
@@ -773,7 +839,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record Plan(@JsonProperty("sessionUpdate") String sessionUpdate,
-			@JsonProperty("entries") List<PlanEntry> entries) implements SessionUpdate {
+			@JsonProperty("entries") List<PlanEntry> entries,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
+		public Plan(String sessionUpdate, List<PlanEntry> entries) {
+			this(sessionUpdate, entries, null);
+		}
 	}
 
 	/**
@@ -782,7 +852,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record AvailableCommandsUpdate(@JsonProperty("sessionUpdate") String sessionUpdate,
-			@JsonProperty("availableCommands") List<AvailableCommand> availableCommands) implements SessionUpdate {
+			@JsonProperty("availableCommands") List<AvailableCommand> availableCommands,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
+		public AvailableCommandsUpdate(String sessionUpdate, List<AvailableCommand> availableCommands) {
+			this(sessionUpdate, availableCommands, null);
+		}
 	}
 
 	/**
@@ -791,7 +865,11 @@ public final class AcpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record CurrentModeUpdate(@JsonProperty("sessionUpdate") String sessionUpdate,
-			@JsonProperty("currentModeId") String currentModeId) implements SessionUpdate {
+			@JsonProperty("currentModeId") String currentModeId,
+			@JsonProperty("_meta") Map<String, Object> meta) implements SessionUpdate {
+		public CurrentModeUpdate(String sessionUpdate, String currentModeId) {
+			this(sessionUpdate, currentModeId, null);
+		}
 	}
 
 	// ---------------------------
@@ -927,18 +1005,33 @@ public final class AcpSchema {
 	// ---------------------------
 
 	/**
-	 * MCP server configuration
+	 * MCP server configuration.
+	 * <p>
+	 * Per the ACP spec:
+	 * <ul>
+	 * <li>Stdio transport: NO type field (default)</li>
+	 * <li>HTTP transport: type="http"</li>
+	 * <li>SSE transport: type="sse"</li>
+	 * </ul>
+	 * </p>
+	 * <p>
+	 * Uses {@code EXISTING_PROPERTY} so that:
+	 * <ul>
+	 * <li>McpServerStdio (no type method) serializes WITHOUT type field</li>
+	 * <li>McpServerHttp/Sse (with type method) serialize WITH type field</li>
+	 * </ul>
+	 * </p>
 	 */
-	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-	@JsonSubTypes({ @JsonSubTypes.Type(value = McpServerStdio.class, name = "stdio"),
-			@JsonSubTypes.Type(value = McpServerHttp.class, name = "http"),
+	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", include = JsonTypeInfo.As.EXISTING_PROPERTY,
+			defaultImpl = McpServerStdio.class)
+	@JsonSubTypes({ @JsonSubTypes.Type(value = McpServerHttp.class, name = "http"),
 			@JsonSubTypes.Type(value = McpServerSse.class, name = "sse") })
 	public interface McpServer {
 
 	}
 
 	/**
-	 * STDIO MCP server
+	 * STDIO MCP server (default transport, no type field in JSON).
 	 */
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
@@ -947,21 +1040,37 @@ public final class AcpSchema {
 	}
 
 	/**
-	 * HTTP MCP server
+	 * HTTP MCP server.
 	 */
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public record McpServerHttp(@JsonProperty("type") String type, @JsonProperty("name") String name,
-			@JsonProperty("url") String url, @JsonProperty("headers") List<HttpHeader> headers) implements McpServer {
+	public record McpServerHttp(@JsonProperty("name") String name, @JsonProperty("url") String url,
+			@JsonProperty("headers") List<HttpHeader> headers) implements McpServer {
+
+		/**
+		 * Returns the transport type identifier.
+		 */
+		@JsonProperty("type")
+		public String type() {
+			return "http";
+		}
 	}
 
 	/**
-	 * SSE MCP server
+	 * SSE MCP server.
 	 */
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public record McpServerSse(@JsonProperty("type") String type, @JsonProperty("name") String name,
-			@JsonProperty("url") String url, @JsonProperty("headers") List<HttpHeader> headers) implements McpServer {
+	public record McpServerSse(@JsonProperty("name") String name, @JsonProperty("url") String url,
+			@JsonProperty("headers") List<HttpHeader> headers) implements McpServer {
+
+		/**
+		 * Returns the transport type identifier.
+		 */
+		@JsonProperty("type")
+		public String type() {
+			return "sse";
+		}
 	}
 
 	/**

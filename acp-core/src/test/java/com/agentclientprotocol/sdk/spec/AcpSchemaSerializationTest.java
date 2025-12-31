@@ -7,6 +7,7 @@ package com.agentclientprotocol.sdk.spec;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import com.agentclientprotocol.sdk.AcpTestFixtures;
 import io.modelcontextprotocol.json.McpJsonMapper;
@@ -281,6 +282,116 @@ class AcpSchemaSerializationTest {
 		assertThat(deserialized.currentModelId()).isEqualTo("test-model");
 		assertThat(deserialized.availableModels()).hasSize(1);
 		assertThat(deserialized.availableModels().get(0).modelId()).isEqualTo("test-model");
+	}
+
+	// ---------------------------
+	// _meta Field Serialization Tests
+	// ---------------------------
+
+	@Test
+	void initializeRequestWithMetaSerialization() throws IOException {
+		Map<String, Object> meta = Map.of("zed.dev/debugMode", true, "custom/version", "1.0.0");
+		AcpSchema.InitializeRequest request = new AcpSchema.InitializeRequest(1,
+				new AcpSchema.ClientCapabilities(new AcpSchema.FileSystemCapability(true, true), true), meta);
+
+		String json = jsonMapper.writeValueAsString(request);
+		assertThat(json).contains("\"_meta\"");
+		assertThat(json).contains("zed.dev/debugMode");
+
+		AcpSchema.InitializeRequest deserialized = jsonMapper.readValue(json,
+				new TypeRef<AcpSchema.InitializeRequest>() {
+				});
+
+		assertThat(deserialized.meta()).isNotNull();
+		assertThat(deserialized.meta()).containsKey("zed.dev/debugMode");
+		assertThat(deserialized.meta().get("zed.dev/debugMode")).isEqualTo(true);
+		assertThat(deserialized.meta().get("custom/version")).isEqualTo("1.0.0");
+	}
+
+	@Test
+	void initializeRequestWithoutMetaOmitsField() throws IOException {
+		AcpSchema.InitializeRequest request = new AcpSchema.InitializeRequest(1, new AcpSchema.ClientCapabilities());
+
+		String json = jsonMapper.writeValueAsString(request);
+		assertThat(json).doesNotContain("\"_meta\"");
+
+		AcpSchema.InitializeRequest deserialized = jsonMapper.readValue(json,
+				new TypeRef<AcpSchema.InitializeRequest>() {
+				});
+		assertThat(deserialized.meta()).isNull();
+	}
+
+	@Test
+	void promptRequestWithMetaSerialization() throws IOException {
+		Map<String, Object> meta = Map.of("zed.dev/debugMode", true);
+		AcpSchema.PromptRequest request = new AcpSchema.PromptRequest("sess_123",
+				List.of(new AcpSchema.TextContent("Hello")), meta);
+
+		String json = jsonMapper.writeValueAsString(request);
+		assertThat(json).contains("\"_meta\"");
+
+		AcpSchema.PromptRequest deserialized = jsonMapper.readValue(json, new TypeRef<AcpSchema.PromptRequest>() {
+		});
+
+		assertThat(deserialized.meta()).isNotNull();
+		assertThat(deserialized.meta().get("zed.dev/debugMode")).isEqualTo(true);
+	}
+
+	@Test
+	void agentCapabilitiesWithMetaSerialization() throws IOException {
+		// Nested _meta object as shown in spec for advertising custom capabilities
+		Map<String, Object> zedCapabilities = Map.of("workspace", true, "fileNotifications", true);
+		Map<String, Object> meta = Map.of("zed.dev", zedCapabilities);
+		AcpSchema.AgentCapabilities caps = new AcpSchema.AgentCapabilities(true, new AcpSchema.McpCapabilities(true, false),
+				new AcpSchema.PromptCapabilities(false, true, true), meta);
+
+		String json = jsonMapper.writeValueAsString(caps);
+		assertThat(json).contains("\"_meta\"");
+		assertThat(json).contains("zed.dev");
+
+		AcpSchema.AgentCapabilities deserialized = jsonMapper.readValue(json,
+				new TypeRef<AcpSchema.AgentCapabilities>() {
+				});
+
+		assertThat(deserialized.meta()).isNotNull();
+		@SuppressWarnings("unchecked")
+		Map<String, Object> zedCaps = (Map<String, Object>) deserialized.meta().get("zed.dev");
+		assertThat(zedCaps).containsEntry("workspace", true);
+		assertThat(zedCaps).containsEntry("fileNotifications", true);
+	}
+
+	@Test
+	void sessionUpdateWithMetaSerialization() throws IOException {
+		Map<String, Object> meta = Map.of("custom/field", "value");
+		AcpSchema.AgentMessageChunk update = new AcpSchema.AgentMessageChunk("agent_message_chunk",
+				new AcpSchema.TextContent("Hello"), meta);
+
+		String json = jsonMapper.writeValueAsString(update);
+		assertThat(json).contains("\"_meta\"");
+
+		AcpSchema.AgentMessageChunk deserialized = jsonMapper.readValue(json,
+				new TypeRef<AcpSchema.AgentMessageChunk>() {
+				});
+
+		assertThat(deserialized.meta()).isNotNull();
+		assertThat(deserialized.meta().get("custom/field")).isEqualTo("value");
+	}
+
+	@Test
+	void metaFieldRoundTripFromGoldenFile() throws IOException {
+		// Read golden file and verify round-trip
+		String goldenJson = new String(
+				getClass().getResourceAsStream("/golden/initialize-request-with-meta.json").readAllBytes());
+
+		AcpSchema.InitializeRequest deserialized = jsonMapper.readValue(goldenJson,
+				new TypeRef<AcpSchema.InitializeRequest>() {
+				});
+
+		assertThat(deserialized.protocolVersion()).isEqualTo(1);
+		assertThat(deserialized.meta()).isNotNull();
+		assertThat(deserialized.meta()).containsKey("zed.dev/debugMode");
+		assertThat(deserialized.meta().get("zed.dev/debugMode")).isEqualTo(true);
+		assertThat(deserialized.meta().get("custom/version")).isEqualTo("1.0.0");
 	}
 
 }
