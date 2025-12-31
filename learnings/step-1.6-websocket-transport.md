@@ -167,16 +167,40 @@ The transports work correctly - the issue is test infrastructure setup.
 2. Consider using Jetty 11 if Jetty 12 configuration is too complex
 3. Alternatively, use a simpler WebSocket server for testing
 
+## Multi-Module Refactoring
+
+After initial implementation, the project was restructured into a multi-module Maven project:
+
+```
+acp-java-sdk/
+├── pom.xml                     # Parent POM
+├── acp-core/                   # Core SDK (zero external deps)
+│   └── src/
+│       ├── main/java/...       # All core classes + WebSocket client
+│       └── test/java/...       # Core tests
+└── acp-websocket-jetty/        # WebSocket server module
+    └── src/
+        ├── main/java/...       # WebSocketAcpAgentTransport
+        └── test/java/...       # WebSocket integration tests
+```
+
+**Rationale:**
+- Java developers prefer minimal dependencies
+- Stdio is the mandated transport; Jetty should be optional
+- Community can contribute alternative WebSocket modules (Netty, Undertow)
+
 ## Files Created/Modified
 
-| File | Action |
-|------|--------|
-| `src/main/java/.../client/transport/WebSocketAcpClientTransport.java` | Created |
-| `src/main/java/.../agent/transport/WebSocketAcpAgentTransport.java` | Created |
-| `src/test/java/.../client/transport/WebSocketAcpClientTransportTest.java` | Created |
-| `src/test/java/.../agent/transport/WebSocketAcpAgentTransportTest.java` | Created |
-| `src/test/java/.../integration/WebSocketClientAgentTest.java` | Created (disabled) |
-| `pom.xml` | Modified (added Jetty dependencies) |
+| File | Location |
+|------|----------|
+| `WebSocketAcpClientTransport.java` | `acp-core/.../client/transport/` |
+| `WebSocketAcpAgentTransport.java` | `acp-websocket-jetty/.../agent/transport/` |
+| `WebSocketAcpClientTransportTest.java` | `acp-core/.../client/transport/` |
+| `WebSocketAcpAgentTransportTest.java` | `acp-websocket-jetty/.../agent/transport/` |
+| `WebSocketClientAgentTest.java` | `acp-websocket-jetty/.../integration/` (disabled) |
+| Parent `pom.xml` | Root (packaging: pom) |
+| `acp-core/pom.xml` | Core module |
+| `acp-websocket-jetty/pom.xml` | WebSocket module |
 
 ## Phase 1 Complete
 
