@@ -98,11 +98,14 @@ public class MockAcpClient {
 
 	/**
 	 * Initializes the connection with the agent.
+	 * Advertises all capabilities (file read, file write, terminal) by default.
 	 * @return The initialize response
 	 */
 	public AcpSchema.InitializeResponse initialize() {
-		return delegate.initialize(new AcpSchema.InitializeRequest(1, new AcpSchema.ClientCapabilities()))
-			.block(timeout);
+		// Mock client advertises all capabilities by default
+		AcpSchema.FileSystemCapability fs = new AcpSchema.FileSystemCapability(true, true);
+		AcpSchema.ClientCapabilities caps = new AcpSchema.ClientCapabilities(fs, true);
+		return delegate.initialize(new AcpSchema.InitializeRequest(1, caps)).block(timeout);
 	}
 
 	/**

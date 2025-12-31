@@ -7,7 +7,10 @@ package com.agentclientprotocol.sdk.agent;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
+import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
+import com.agentclientprotocol.sdk.error.AcpCapabilityException;
 import com.agentclientprotocol.sdk.spec.AcpAgentSession;
 import com.agentclientprotocol.sdk.spec.AcpAgentTransport;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
@@ -53,6 +56,11 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 
 	private volatile AcpAgentSession session;
 
+	/**
+	 * Capabilities negotiated with the client during initialization.
+	 */
+	private final AtomicReference<NegotiatedCapabilities> clientCapabilities = new AtomicReference<>();
+
 	DefaultAcpAsyncAgent(AcpAgentTransport transport, Duration requestTimeout,
 			AcpAgent.InitializeHandler initializeHandler, AcpAgent.AuthenticateHandler authenticateHandler,
 			AcpAgent.NewSessionHandler newSessionHandler, AcpAgent.LoadSessionHandler loadSessionHandler,
@@ -78,12 +86,16 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 			// Build request handlers
 			Map<String, AcpAgentSession.RequestHandler<?>> requestHandlers = new HashMap<>();
 
-			// Initialize handler
+			// Initialize handler - also captures client capabilities
 			if (initializeHandler != null) {
 				requestHandlers.put(AcpSchema.METHOD_INITIALIZE, params -> {
 					AcpSchema.InitializeRequest request = transport.unmarshalFrom(params,
 							new TypeRef<AcpSchema.InitializeRequest>() {
 							});
+					// Capture the client capabilities
+					NegotiatedCapabilities caps = NegotiatedCapabilities.fromClient(request.clientCapabilities());
+					clientCapabilities.set(caps);
+					logger.debug("Negotiated client capabilities: {}", caps);
 					return initializeHandler.handle(request).cast(Object.class);
 				});
 			}
@@ -170,6 +182,11 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 	}
 
 	@Override
+	public NegotiatedCapabilities getClientCapabilities() {
+		return clientCapabilities.get();
+	}
+
+	@Override
 	public Mono<Void> sendSessionUpdate(String sessionId, AcpSchema.SessionUpdate update) {
 		if (session == null) {
 			return Mono.error(new IllegalStateException("Agent not started"));
@@ -193,6 +210,11 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 		if (session == null) {
 			return Mono.error(new IllegalStateException("Agent not started"));
 		}
+		// Validate client supports file reading
+		NegotiatedCapabilities caps = clientCapabilities.get();
+		if (caps != null && !caps.supportsReadTextFile()) {
+			return Mono.error(new AcpCapabilityException("fs.readTextFile"));
+		}
 		return session.sendRequest(AcpSchema.METHOD_FS_READ_TEXT_FILE, request,
 				new TypeRef<AcpSchema.ReadTextFileResponse>() {
 				});
@@ -203,6 +225,11 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 		if (session == null) {
 			return Mono.error(new IllegalStateException("Agent not started"));
 		}
+		// Validate client supports file writing
+		NegotiatedCapabilities caps = clientCapabilities.get();
+		if (caps != null && !caps.supportsWriteTextFile()) {
+			return Mono.error(new AcpCapabilityException("fs.writeTextFile"));
+		}
 		return session.sendRequest(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, request,
 				new TypeRef<AcpSchema.WriteTextFileResponse>() {
 				});
@@ -212,6 +239,11 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 	public Mono<AcpSchema.CreateTerminalResponse> createTerminal(AcpSchema.CreateTerminalRequest request) {
 		if (session == null) {
 			return Mono.error(new IllegalStateException("Agent not started"));
+		}
+		// Validate client supports terminal
+		NegotiatedCapabilities caps = clientCapabilities.get();
+		if (caps != null && !caps.supportsTerminal()) {
+			return Mono.error(new AcpCapabilityException("terminal"));
 		}
 		return session.sendRequest(AcpSchema.METHOD_TERMINAL_CREATE, request,
 				new TypeRef<AcpSchema.CreateTerminalResponse>() {

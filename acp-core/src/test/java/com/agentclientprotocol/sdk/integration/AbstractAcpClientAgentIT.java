@@ -380,9 +380,12 @@ public abstract class AbstractAcpClientAgentIT {
 				.build();
 
 			// Start, initialize, and create session
+			// Client must advertise file reading capability for agent to use it
+			AcpSchema.FileSystemCapability fsCaps = new AcpSchema.FileSystemCapability(true, false);
+			AcpSchema.ClientCapabilities clientCaps = new AcpSchema.ClientCapabilities(fsCaps, false);
 			agent.start().subscribe();
 			Thread.sleep(100);
-			client.initialize(new AcpSchema.InitializeRequest(1, new AcpSchema.ClientCapabilities())).block(TIMEOUT);
+			client.initialize(new AcpSchema.InitializeRequest(1, clientCaps)).block(TIMEOUT);
 			client.newSession(new AcpSchema.NewSessionRequest("/workspace", List.of())).block(TIMEOUT);
 
 			// Send prompt which triggers file read

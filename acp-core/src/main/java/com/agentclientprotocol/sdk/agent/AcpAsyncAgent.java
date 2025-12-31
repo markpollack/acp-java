@@ -4,6 +4,7 @@
 
 package com.agentclientprotocol.sdk.agent;
 
+import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
 import io.modelcontextprotocol.json.TypeRef;
 import reactor.core.publisher.Mono;
@@ -32,6 +33,18 @@ public interface AcpAsyncAgent {
 	 * @return A Mono that completes when the agent is started
 	 */
 	Mono<Void> start();
+
+	/**
+	 * Returns the capabilities negotiated with the client during initialization.
+	 *
+	 * <p>
+	 * This method returns null if initialization has not been completed yet.
+	 * Use this to check what features the client supports before calling
+	 * methods like {@link #readTextFile} or {@link #createTerminal}.
+	 * </p>
+	 * @return the negotiated client capabilities, or null if not initialized
+	 */
+	NegotiatedCapabilities getClientCapabilities();
 
 	/**
 	 * Sends a session update notification to the client.

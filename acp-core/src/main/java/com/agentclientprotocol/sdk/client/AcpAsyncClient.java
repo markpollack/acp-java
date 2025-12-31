@@ -4,6 +4,9 @@
 
 package com.agentclientprotocol.sdk.client;
 
+import java.util.concurrent.atomic.AtomicReference;
+
+import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
 import io.modelcontextprotocol.json.TypeRef;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
 import com.agentclientprotocol.sdk.spec.AcpSession;
@@ -110,6 +113,11 @@ public class AcpAsyncClient {
 	private final AcpSession session;
 
 	/**
+	 * Capabilities negotiated with the agent during initialization.
+	 */
+	private final AtomicReference<NegotiatedCapabilities> agentCapabilities = new AtomicReference<>();
+
+	/**
 	 * Creates a new AcpAsyncClient with the given session.
 	 * @param session the ACP session for communication
 	 */
@@ -130,15 +138,39 @@ public class AcpAsyncClient {
 	 * The client sends its protocol version and capabilities, and the agent responds with
 	 * its supported protocol version, authentication methods, and capabilities.
 	 * </p>
+	 *
+	 * <p>
+	 * After initialization, the agent's capabilities can be accessed via
+	 * {@link #getAgentCapabilities()}.
+	 * </p>
 	 * @param initializeRequest the initialization request containing protocol version and
 	 * client capabilities
 	 * @return a Mono emitting the initialization response with agent capabilities
 	 * @see AcpSchema#METHOD_INITIALIZE
+	 * @see #getAgentCapabilities()
 	 */
 	public Mono<AcpSchema.InitializeResponse> initialize(AcpSchema.InitializeRequest initializeRequest) {
 		Assert.notNull(initializeRequest, "Initialize request must not be null");
 		logger.debug("Initializing ACP client with protocol version: {}", initializeRequest.protocolVersion());
-		return session.sendRequest(AcpSchema.METHOD_INITIALIZE, initializeRequest, INITIALIZE_RESPONSE_TYPE_REF);
+		return session.sendRequest(AcpSchema.METHOD_INITIALIZE, initializeRequest, INITIALIZE_RESPONSE_TYPE_REF)
+			.doOnNext(response -> {
+				// Store the negotiated agent capabilities
+				NegotiatedCapabilities caps = NegotiatedCapabilities.fromAgent(response.agentCapabilities());
+				agentCapabilities.set(caps);
+				logger.debug("Negotiated agent capabilities: {}", caps);
+			});
+	}
+
+	/**
+	 * Returns the capabilities negotiated with the agent during initialization.
+	 *
+	 * <p>
+	 * This method returns null if {@link #initialize} has not been called yet.
+	 * </p>
+	 * @return the negotiated agent capabilities, or null if not initialized
+	 */
+	public NegotiatedCapabilities getAgentCapabilities() {
+		return agentCapabilities.get();
 	}
 
 	// --------------------------
