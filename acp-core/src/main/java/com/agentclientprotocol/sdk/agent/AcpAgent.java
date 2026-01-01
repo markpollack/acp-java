@@ -214,6 +214,119 @@ public interface AcpAgent {
 
 	}
 
+	// ========================================================================
+	// Synchronous Handler Interfaces (for SyncAgentBuilder)
+	// ========================================================================
+
+	/**
+	 * Synchronous functional interface for handling initialize requests.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncInitializeHandler {
+
+		AcpSchema.InitializeResponse handle(AcpSchema.InitializeRequest request);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling authenticate requests.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncAuthenticateHandler {
+
+		AcpSchema.AuthenticateResponse handle(AcpSchema.AuthenticateRequest request);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling new session requests.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncNewSessionHandler {
+
+		AcpSchema.NewSessionResponse handle(AcpSchema.NewSessionRequest request);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling load session requests.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncLoadSessionHandler {
+
+		AcpSchema.LoadSessionResponse handle(AcpSchema.LoadSessionRequest request);
+
+	}
+
+	/**
+	 * Synchronous interface for sending session updates during prompt processing.
+	 * Blocks until the update is sent, returns void.
+	 */
+	interface SyncSessionUpdateSender {
+
+		/**
+		 * Sends a session update notification to the client. Blocks until sent.
+		 * @param sessionId The session ID
+		 * @param update The session update to send
+		 */
+		void sendUpdate(String sessionId, AcpSchema.SessionUpdate update);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling prompt requests with streaming updates.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncPromptHandler {
+
+		/**
+		 * Handles a prompt request, optionally sending session updates during processing.
+		 * @param request The prompt request
+		 * @param updater Interface for sending session updates (blocking)
+		 * @return The prompt response
+		 */
+		AcpSchema.PromptResponse handle(AcpSchema.PromptRequest request, SyncSessionUpdateSender updater);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling set session mode requests.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncSetSessionModeHandler {
+
+		AcpSchema.SetSessionModeResponse handle(AcpSchema.SetSessionModeRequest request);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling set session model requests.
+	 * Returns a plain value instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncSetSessionModelHandler {
+
+		AcpSchema.SetSessionModelResponse handle(AcpSchema.SetSessionModelRequest request);
+
+	}
+
+	/**
+	 * Synchronous functional interface for handling cancel notifications.
+	 * Returns void instead of Mono for use with sync agents.
+	 */
+	@FunctionalInterface
+	interface SyncCancelHandler {
+
+		void handle(AcpSchema.CancelNotification notification);
+
+	}
+
 	/**
 	 * Builder for creating asynchronous ACP agents.
 	 */
@@ -349,6 +462,24 @@ public interface AcpAgent {
 
 	/**
 	 * Builder for creating synchronous ACP agents.
+	 * <p>
+	 * This builder accepts synchronous handler interfaces that return plain values
+	 * instead of Mono. Internally, handlers are converted to async handlers using
+	 * the MCP SDK pattern (Mono.fromCallable + boundedElastic scheduler).
+	 * </p>
+	 *
+	 * <p>Example usage:</p>
+	 * <pre>{@code
+	 * AcpSyncAgent agent = AcpAgent.sync(transport)
+	 *     .initializeHandler(req -> new InitializeResponse(1, capabilities, List.of()))
+	 *     .newSessionHandler(req -> new NewSessionResponse(sessionId, null, null))
+	 *     .promptHandler((req, updater) -> {
+	 *         updater.sendUpdate(sessionId, thought);  // blocks, void return
+	 *         updater.sendUpdate(sessionId, message);  // blocks, void return
+	 *         return new PromptResponse(StopReason.END_TURN);  // plain return
+	 *     })
+	 *     .build();
+	 * }</pre>
 	 */
 	class SyncAgentBuilder {
 
@@ -369,82 +500,82 @@ public interface AcpAgent {
 		}
 
 		/**
-		 * Sets the handler for initialize requests.
-		 * @param handler The initialize handler
+		 * Sets the synchronous handler for initialize requests.
+		 * @param handler The sync initialize handler (returns plain value)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder initializeHandler(InitializeHandler handler) {
-			asyncBuilder.initializeHandler(handler);
+		public SyncAgentBuilder initializeHandler(SyncInitializeHandler handler) {
+			asyncBuilder.initializeHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for authenticate requests.
-		 * @param handler The authenticate handler
+		 * Sets the synchronous handler for authenticate requests.
+		 * @param handler The sync authenticate handler (returns plain value)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder authenticateHandler(AuthenticateHandler handler) {
-			asyncBuilder.authenticateHandler(handler);
+		public SyncAgentBuilder authenticateHandler(SyncAuthenticateHandler handler) {
+			asyncBuilder.authenticateHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for new session requests.
-		 * @param handler The new session handler
+		 * Sets the synchronous handler for new session requests.
+		 * @param handler The sync new session handler (returns plain value)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder newSessionHandler(NewSessionHandler handler) {
-			asyncBuilder.newSessionHandler(handler);
+		public SyncAgentBuilder newSessionHandler(SyncNewSessionHandler handler) {
+			asyncBuilder.newSessionHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for load session requests.
-		 * @param handler The load session handler
+		 * Sets the synchronous handler for load session requests.
+		 * @param handler The sync load session handler (returns plain value)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder loadSessionHandler(LoadSessionHandler handler) {
-			asyncBuilder.loadSessionHandler(handler);
+		public SyncAgentBuilder loadSessionHandler(SyncLoadSessionHandler handler) {
+			asyncBuilder.loadSessionHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for prompt requests.
-		 * @param handler The prompt handler
+		 * Sets the synchronous handler for prompt requests.
+		 * @param handler The sync prompt handler (returns plain value, uses SyncSessionUpdateSender)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder promptHandler(PromptHandler handler) {
-			asyncBuilder.promptHandler(handler);
+		public SyncAgentBuilder promptHandler(SyncPromptHandler handler) {
+			asyncBuilder.promptHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for set session mode requests.
-		 * @param handler The set session mode handler
+		 * Sets the synchronous handler for set session mode requests.
+		 * @param handler The sync set session mode handler (returns plain value)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder setSessionModeHandler(SetSessionModeHandler handler) {
-			asyncBuilder.setSessionModeHandler(handler);
+		public SyncAgentBuilder setSessionModeHandler(SyncSetSessionModeHandler handler) {
+			asyncBuilder.setSessionModeHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for set session model requests.
-		 * @param handler The set session model handler
+		 * Sets the synchronous handler for set session model requests.
+		 * @param handler The sync set session model handler (returns plain value)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder setSessionModelHandler(SetSessionModelHandler handler) {
-			asyncBuilder.setSessionModelHandler(handler);
+		public SyncAgentBuilder setSessionModelHandler(SyncSetSessionModelHandler handler) {
+			asyncBuilder.setSessionModelHandler(fromSync(handler));
 			return this;
 		}
 
 		/**
-		 * Sets the handler for cancel notifications.
-		 * @param handler The cancel handler
+		 * Sets the synchronous handler for cancel notifications.
+		 * @param handler The sync cancel handler (returns void)
 		 * @return This builder for chaining
 		 */
-		public SyncAgentBuilder cancelHandler(CancelHandler handler) {
-			asyncBuilder.cancelHandler(handler);
+		public SyncAgentBuilder cancelHandler(SyncCancelHandler handler) {
+			asyncBuilder.cancelHandler(fromSync(handler));
 			return this;
 		}
 
@@ -454,6 +585,79 @@ public interface AcpAgent {
 		 */
 		public AcpSyncAgent build() {
 			return new AcpSyncAgent(asyncBuilder.build());
+		}
+
+		// ========================================================================
+		// fromSync() conversion methods - following MCP SDK pattern
+		// Wraps sync handlers in Mono.fromCallable() with boundedElastic scheduler
+		// ========================================================================
+
+		private static InitializeHandler fromSync(SyncInitializeHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static AuthenticateHandler fromSync(SyncAuthenticateHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static NewSessionHandler fromSync(SyncNewSessionHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static LoadSessionHandler fromSync(SyncLoadSessionHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static PromptHandler fromSync(SyncPromptHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return (request, asyncUpdater) -> Mono.fromCallable(() -> {
+				// Create a blocking wrapper around the async SessionUpdateSender
+				SyncSessionUpdateSender syncUpdater = (sessionId, update) -> asyncUpdater.sendUpdate(sessionId, update)
+					.block();
+				return syncHandler.handle(request, syncUpdater);
+			}).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static SetSessionModeHandler fromSync(SyncSetSessionModeHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static SetSessionModelHandler fromSync(SyncSetSessionModelHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+		}
+
+		private static CancelHandler fromSync(SyncCancelHandler syncHandler) {
+			if (syncHandler == null) {
+				return null;
+			}
+			return notification -> Mono.<Void>fromRunnable(() -> syncHandler.handle(notification))
+				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
 		}
 
 	}

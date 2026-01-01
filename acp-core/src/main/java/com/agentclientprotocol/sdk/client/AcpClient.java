@@ -296,7 +296,8 @@ public interface AcpClient {
 			}
 
 			// Create session with request and notification handlers
-			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers);
+			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
+					Function.identity());
 
 			return new AcpAsyncClient(session);
 		}
@@ -476,7 +477,8 @@ public interface AcpClient {
 			}
 
 			// Create session with request and notification handlers
-			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers);
+			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
+					Function.identity());
 
 			return new AcpSyncClient(new AcpAsyncClient(session));
 		}

@@ -52,14 +52,13 @@ class AcpAgentTest {
 	void syncBuilderCreatesAgent() {
 		var transportPair = InMemoryTransportPair.create();
 		try {
+			// Sync builder now uses sync handler interfaces (plain return values, no Mono)
 			AcpSyncAgent agent = AcpAgent.sync(transportPair.agentTransport())
 				.requestTimeout(Duration.ofSeconds(30))
 				.initializeHandler(
-						request -> Mono.just(new AcpSchema.InitializeResponse(1, new AcpSchema.AgentCapabilities(),
-								List.of())))
-				.newSessionHandler(request -> Mono.just(new AcpSchema.NewSessionResponse("session-1", null, null)))
-				.promptHandler((request, updater) -> Mono
-					.just(new AcpSchema.PromptResponse(AcpSchema.StopReason.END_TURN)))
+						request -> new AcpSchema.InitializeResponse(1, new AcpSchema.AgentCapabilities(), List.of()))
+				.newSessionHandler(request -> new AcpSchema.NewSessionResponse("session-1", null, null))
+				.promptHandler((request, updater) -> new AcpSchema.PromptResponse(AcpSchema.StopReason.END_TURN))
 				.build();
 
 			assertThat(agent).isNotNull();
@@ -261,10 +260,11 @@ class AcpAgentTest {
 		try {
 			AtomicReference<AcpSchema.InitializeRequest> receivedRequest = new AtomicReference<>();
 
+			// Sync builder now uses sync handler interfaces (plain return values, no Mono)
 			AcpSyncAgent agent = AcpAgent.sync(transportPair.agentTransport())
 				.initializeHandler(request -> {
 					receivedRequest.set(request);
-					return Mono.just(new AcpSchema.InitializeResponse(1, new AcpSchema.AgentCapabilities(), List.of()));
+					return new AcpSchema.InitializeResponse(1, new AcpSchema.AgentCapabilities(), List.of());
 				})
 				.build();
 

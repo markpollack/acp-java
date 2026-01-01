@@ -107,21 +107,6 @@ public class AcpClientSession implements AcpSession {
 	 * @param transport Transport implementation for message exchange
 	 * @param requestHandlers Map of method names to request handlers
 	 * @param notificationHandlers Map of method names to notification handlers
-	 * @deprecated Use
-	 * {@link #AcpClientSession(Duration, AcpClientTransport, Map, Map, Function)}
-	 */
-	@Deprecated
-	public AcpClientSession(Duration requestTimeout, AcpClientTransport transport,
-			Map<String, RequestHandler<?>> requestHandlers, Map<String, NotificationHandler> notificationHandlers) {
-		this(requestTimeout, transport, requestHandlers, notificationHandlers, Function.identity());
-	}
-
-	/**
-	 * Creates a new AcpClientSession with the specified configuration and handlers.
-	 * @param requestTimeout Duration to wait for responses
-	 * @param transport Transport implementation for message exchange
-	 * @param requestHandlers Map of method names to request handlers
-	 * @param notificationHandlers Map of method names to notification handlers
 	 * @param connectHook Hook that allows transforming the connection Publisher prior to
 	 * subscribing
 	 */
