@@ -49,9 +49,44 @@ public class AcpSyncAgent {
 
 	/**
 	 * Starts the agent, beginning to accept client connections.
+	 * This method returns immediately after setup is complete.
+	 * Use {@link #await()} or {@link #run()} to block until the transport closes.
 	 */
 	public void start() {
 		asyncAgent.start().block(blockTimeout);
+	}
+
+	/**
+	 * Blocks until the agent terminates (transport closes).
+	 * This is useful for keeping the main thread alive when using daemon threads.
+	 *
+	 * <p>Example usage:
+	 * <pre>{@code
+	 * agent.start();
+	 * agent.await(); // Blocks until stdin closes
+	 * }</pre>
+	 */
+	public void await() {
+		asyncAgent.awaitTermination().block();
+	}
+
+	/**
+	 * Starts the agent and blocks until it terminates.
+	 * This is a convenience method combining {@link #start()} and {@link #await()}.
+	 *
+	 * <p>Example usage for a standalone agent:
+	 * <pre>{@code
+	 * public static void main(String[] args) {
+	 *     AcpSyncAgent agent = AcpAgent.sync(transport)
+	 *         .promptHandler(...)
+	 *         .build();
+	 *     agent.run(); // Start and block until done
+	 * }
+	 * }</pre>
+	 */
+	public void run() {
+		start();
+		await();
 	}
 
 	/**

@@ -105,7 +105,10 @@ class StdioAcpAgentTransportTest {
 
 		StdioAcpAgentTransport transport = new StdioAcpAgentTransport(jsonMapper, agentIn, agentOut);
 
-		transport.start(msg -> msg).subscribe();
+		// Use a non-echoing handler - the default echo handler (msg -> msg) would
+		// echo the warmup message back to output, causing the test to read the
+		// wrong message. We only want to test explicit sendMessage() output.
+		transport.start(msg -> Mono.empty()).subscribe();
 
 		// Wait for transport to be ready by sending a dummy message from "client" first
 		AcpSchema.JSONRPCRequest dummyRequest = AcpTestFixtures.createJsonRpcRequest(AcpSchema.METHOD_INITIALIZE, "0",

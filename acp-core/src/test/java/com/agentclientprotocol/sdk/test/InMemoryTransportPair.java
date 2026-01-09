@@ -171,6 +171,8 @@ public class InMemoryTransportPair {
 
 		private final Sinks.Many<AcpSchema.JSONRPCMessage> inbound;
 
+		private final Sinks.One<Void> terminationSink = Sinks.one();
+
 		private volatile boolean started = false;
 
 		private Consumer<Throwable> exceptionHandler = t -> {
@@ -223,8 +225,14 @@ public class InMemoryTransportPair {
 			return Mono.defer(() -> {
 				started = false;
 				outbound.tryEmitComplete();
+				terminationSink.tryEmitValue(null);
 				return Mono.empty();
 			});
+		}
+
+		@Override
+		public Mono<Void> awaitTermination() {
+			return terminationSink.asMono();
 		}
 
 		@Override

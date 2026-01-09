@@ -41,4 +41,19 @@ public interface AcpAgentTransport extends AcpTransport {
 	default void setExceptionHandler(Consumer<Throwable> handler) {
 	}
 
+	/**
+	 * Returns a Mono that completes when the transport terminates.
+	 * This is useful for agents that need to block until the transport is done,
+	 * particularly when using daemon threads.
+	 *
+	 * <p>Example usage:
+	 * <pre>{@code
+	 * transport.start(handler).block();
+	 * transport.awaitTermination().block(); // Block until stdin closes
+	 * }</pre>
+	 *
+	 * @return a {@link Mono} that completes when the transport terminates
+	 */
+	Mono<Void> awaitTermination();
+
 }

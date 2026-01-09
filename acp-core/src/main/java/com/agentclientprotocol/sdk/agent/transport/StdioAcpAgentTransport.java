@@ -69,6 +69,8 @@ public class StdioAcpAgentTransport implements AcpAgentTransport {
 
 	private final Sinks.One<Void> outboundReady = Sinks.one();
 
+	private final Sinks.One<Void> terminationSink = Sinks.one();
+
 	private Scheduler inboundScheduler;
 
 	private Scheduler outboundScheduler;
@@ -153,6 +155,11 @@ public class StdioAcpAgentTransport implements AcpAgentTransport {
 	private void handleIncomingMessages(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
 		this.inboundSink.asFlux()
 			.flatMap(message -> Mono.just(message).transform(handler))
+			.doOnNext(response -> {
+				if (response != null) {
+					this.outboundSink.tryEmitNext(response);
+				}
+			})
 			.doOnTerminate(() -> {
 				this.outboundSink.tryEmitComplete();
 				this.inboundScheduler.dispose();
@@ -206,6 +213,8 @@ public class StdioAcpAgentTransport implements AcpAgentTransport {
 			finally {
 				isClosing.set(true);
 				inboundSink.tryEmitComplete();
+				terminationSink.tryEmitValue(null);  // Signal termination for awaitTermination()
+				logger.debug("Agent transport terminated");
 			}
 		});
 	}
@@ -299,6 +308,11 @@ public class StdioAcpAgentTransport implements AcpAgentTransport {
 	@Override
 	public void setExceptionHandler(Consumer<Throwable> handler) {
 		this.exceptionHandler = handler;
+	}
+
+	@Override
+	public Mono<Void> awaitTermination() {
+		return terminationSink.asMono();
 	}
 
 	@Override

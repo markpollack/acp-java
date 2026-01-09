@@ -182,6 +182,11 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 	}
 
 	@Override
+	public Mono<Void> awaitTermination() {
+		return transport.awaitTermination();
+	}
+
+	@Override
 	public NegotiatedCapabilities getClientCapabilities() {
 		return clientCapabilities.get();
 	}

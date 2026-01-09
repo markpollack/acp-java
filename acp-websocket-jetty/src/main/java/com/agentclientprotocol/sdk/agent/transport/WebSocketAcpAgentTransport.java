@@ -86,6 +86,8 @@ public class WebSocketAcpAgentTransport implements AcpAgentTransport {
 
 	private final Sinks.One<Void> connectionReady = Sinks.one();
 
+	private final Sinks.One<Void> terminationSink = Sinks.one();
+
 	private Scheduler outboundScheduler;
 
 	private final AtomicBoolean isClosing = new AtomicBoolean(false);
@@ -258,6 +260,11 @@ public class WebSocketAcpAgentTransport implements AcpAgentTransport {
 	}
 
 	@Override
+	public Mono<Void> awaitTermination() {
+		return terminationSink.asMono();
+	}
+
+	@Override
 	public <T> T unmarshalFrom(Object data, TypeRef<T> typeRef) {
 		return jsonMapper.convertValue(data, typeRef);
 	}
@@ -301,6 +308,7 @@ public class WebSocketAcpAgentTransport implements AcpAgentTransport {
 			clientSession = null;
 			isClosing.set(true);
 			inboundSink.tryEmitComplete();
+			terminationSink.tryEmitValue(null);  // Signal termination for awaitTermination()
 		}
 
 		@OnWebSocketError
@@ -311,6 +319,7 @@ public class WebSocketAcpAgentTransport implements AcpAgentTransport {
 			}
 			isClosing.set(true);
 			inboundSink.tryEmitComplete();
+			terminationSink.tryEmitValue(null);  // Signal termination for awaitTermination()
 		}
 
 	}

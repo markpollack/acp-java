@@ -35,6 +35,21 @@ public interface AcpAsyncAgent {
 	Mono<Void> start();
 
 	/**
+	 * Returns a Mono that completes when the agent terminates.
+	 * This is useful for blocking until the transport closes, particularly
+	 * when using daemon threads.
+	 *
+	 * <p>Example usage:
+	 * <pre>{@code
+	 * agent.start().block();
+	 * agent.awaitTermination().block(); // Block until transport closes
+	 * }</pre>
+	 *
+	 * @return A Mono that completes when the agent terminates
+	 */
+	Mono<Void> awaitTermination();
+
+	/**
 	 * Returns the capabilities negotiated with the client during initialization.
 	 *
 	 * <p>
