@@ -36,8 +36,18 @@ class AcpAsyncClientTest {
 
 	@Test
 	void testConstructorWithNullSession() {
-		assertThatThrownBy(() -> new AcpAsyncClient(null)).isInstanceOf(IllegalArgumentException.class)
+		var transport = new MockAcpClientTransport();
+		assertThatThrownBy(() -> new AcpAsyncClient(null, transport)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("Session must not be null");
+	}
+
+	@Test
+	void testConstructorWithNullTransport() {
+		var transport = new MockAcpClientTransport();
+		var session = new com.agentclientprotocol.sdk.spec.AcpClientSession(TIMEOUT, transport, Map.of(), Map.of(),
+				Function.identity());
+		assertThatThrownBy(() -> new AcpAsyncClient(session, null)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("Transport must not be null");
 	}
 
 	@Test

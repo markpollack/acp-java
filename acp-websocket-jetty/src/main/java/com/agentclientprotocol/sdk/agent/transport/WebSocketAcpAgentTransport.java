@@ -124,8 +124,13 @@ public class WebSocketAcpAgentTransport implements AcpAgentTransport {
 
 		this.inboundSink = Sinks.many().unicast().onBackpressureBuffer();
 		this.outboundSink = Sinks.many().unicast().onBackpressureBuffer();
+		// Use daemon thread so JVM can exit if closeGracefully() isn't called
 		this.outboundScheduler = Schedulers.fromExecutorService(
-			Executors.newSingleThreadExecutor(), "ws-agent-outbound");
+			Executors.newSingleThreadExecutor(r -> {
+				Thread t = new Thread(r, "acp-ws-agent-outbound");
+				t.setDaemon(true);
+				return t;
+			}), "ws-agent-outbound");
 	}
 
 	/**

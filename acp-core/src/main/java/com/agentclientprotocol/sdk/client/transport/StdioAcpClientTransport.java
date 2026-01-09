@@ -80,6 +80,14 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 	private Consumer<String> stdErrorHandler = error -> logger.info("STDERR Message received: {}", error);
 
 	/**
+	 * Creates a new StdioAcpClientTransport with the specified parameters using the default JsonMapper.
+	 * @param params The parameters for configuring the agent process
+	 */
+	public StdioAcpClientTransport(AgentParameters params) {
+		this(params, McpJsonMapper.getDefault());
+	}
+
+	/**
 	 * Creates a new StdioAcpClientTransport with the specified parameters and JsonMapper.
 	 * @param params The parameters for configuring the agent process
 	 * @param jsonMapper The JsonMapper to use for JSON serialization/deserialization
@@ -97,10 +105,25 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 
 		this.errorSink = Sinks.many().unicast().onBackpressureBuffer();
 
-		// Start threads
-		this.inboundScheduler = Schedulers.fromExecutorService(Executors.newSingleThreadExecutor(), "inbound");
-		this.outboundScheduler = Schedulers.fromExecutorService(Executors.newSingleThreadExecutor(), "outbound");
-		this.errorScheduler = Schedulers.fromExecutorService(Executors.newSingleThreadExecutor(), "error");
+		// Start threads - use daemon threads so JVM can exit if closeGracefully() isn't called
+		this.inboundScheduler = Schedulers.fromExecutorService(
+				Executors.newSingleThreadExecutor(r -> {
+					Thread t = new Thread(r, "acp-client-inbound");
+					t.setDaemon(true);
+					return t;
+				}), "inbound");
+		this.outboundScheduler = Schedulers.fromExecutorService(
+				Executors.newSingleThreadExecutor(r -> {
+					Thread t = new Thread(r, "acp-client-outbound");
+					t.setDaemon(true);
+					return t;
+				}), "outbound");
+		this.errorScheduler = Schedulers.fromExecutorService(
+				Executors.newSingleThreadExecutor(r -> {
+					Thread t = new Thread(r, "acp-client-error");
+					t.setDaemon(true);
+					return t;
+				}), "error");
 	}
 
 	/**
@@ -145,7 +168,7 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 			startOutboundProcessing();
 			startErrorProcessing();
 			logger.info("ACP agent started");
-		}).subscribeOn(Schedulers.boundedElastic());
+		});
 	}
 
 	/**
@@ -255,6 +278,7 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 				String line;
 				while (!isClosing && (line = processReader.readLine()) != null) {
 					try {
+						logger.trace("RECV: {}", line);
 						JSONRPCMessage message = AcpSchema.deserializeJsonRpcMessage(this.jsonMapper, line);
 						if (!this.inboundSink.tryEmitNext(message).isSuccess()) {
 							if (!isClosing) {
@@ -301,6 +325,7 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 						// Messages are delimited by newlines, and MUST NOT contain
 						// embedded newlines.
 						jsonMessage = jsonMessage.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n");
+						logger.trace("SEND: {}", jsonMessage);
 
 						var os = this.process.getOutputStream();
 						synchronized (os) {
@@ -341,15 +366,13 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 		return Mono.fromRunnable(() -> {
 			isClosing = true;
 			logger.debug("Initiating graceful shutdown");
-		}).then(Mono.<Void>defer(() -> {
-			// First complete all sinks to stop accepting new messages
+
+			// Complete all sinks to stop accepting new messages
 			inboundSink.tryEmitComplete();
 			outboundSink.tryEmitComplete();
 			errorSink.tryEmitComplete();
-
-			// Give a short time for any pending messages to be processed
-			return Mono.delay(Duration.ofMillis(100)).then();
-		})).then(Mono.defer(() -> {
+		}).then(Mono.defer(() -> {
+			// Destroy process FIRST - this closes streams and unblocks readLine()
 			logger.debug("Sending TERM to process");
 			if (this.process != null) {
 				this.process.destroy();
@@ -368,8 +391,7 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 			}
 		}).then(Mono.fromRunnable(() -> {
 			try {
-				// The Threads are blocked on readLine so disposeGracefully would not
-				// interrupt them, therefore we issue an async hard dispose.
+				// Now that process is dead and streams closed, threads should be unblocked
 				inboundScheduler.dispose();
 				errorScheduler.dispose();
 				outboundScheduler.dispose();
@@ -379,7 +401,7 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 			catch (Exception e) {
 				logger.error("Error during graceful shutdown", e);
 			}
-		})).then().subscribeOn(Schedulers.boundedElastic());
+		})).then();
 	}
 
 	public Sinks.Many<String> getErrorSink() {

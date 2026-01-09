@@ -48,18 +48,17 @@ Connect to an ACP agent and send a prompt:
 import com.agentclientprotocol.sdk.client.*;
 import com.agentclientprotocol.sdk.client.transport.*;
 import com.agentclientprotocol.sdk.spec.AcpSchema.*;
-import io.modelcontextprotocol.json.McpJsonMapper;
 import java.util.List;
 
 // Connect to an agent via stdio
 var params = AgentParameters.builder("gemini").arg("--experimental-acp").build();
-var transport = new StdioAcpClientTransport(params, McpJsonMapper.getDefault());
+var transport = new StdioAcpClientTransport(params);
 
 // Create client
 AcpSyncClient client = AcpClient.sync(transport).build();
 
 // Initialize, create session, send prompt
-client.initialize(new InitializeRequest(1, new ClientCapabilities()));
+client.initialize();
 var session = client.newSession(new NewSessionRequest("/workspace", List.of()));
 var response = client.prompt(new PromptRequest(
     session.sessionId(),
@@ -77,12 +76,11 @@ Create a minimal ACP agent:
 import com.agentclientprotocol.sdk.agent.*;
 import com.agentclientprotocol.sdk.agent.transport.*;
 import com.agentclientprotocol.sdk.spec.AcpSchema.*;
-import io.modelcontextprotocol.json.McpJsonMapper;
 import reactor.core.publisher.Mono;
 import java.util.List;
 
 // Create stdio transport
-var transport = new StdioAcpAgentTransport(McpJsonMapper.getDefault());
+var transport = new StdioAcpAgentTransport();
 
 // Build agent with handlers
 AcpAsyncAgent agent = AcpAgent.async(transport)
@@ -276,7 +274,7 @@ agent.start().block();  // Starts WebSocket server on port 8080
 
 ```bash
 ./mvnw compile      # Compile
-./mvnw test         # Run tests (232 tests)
+./mvnw test         # Run tests (246 tests across 2 modules)
 ./mvnw install      # Install to local Maven repository
 ```
 

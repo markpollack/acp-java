@@ -8,9 +8,13 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import com.agentclientprotocol.sdk.util.Assert;
 import io.modelcontextprotocol.json.TypeRef;
@@ -48,6 +52,11 @@ public class AcpAgentSession implements AcpSession {
 
 	/** Duration to wait for request responses before timing out */
 	private final Duration requestTimeout;
+
+	/**
+	 * Per-session daemon scheduler for timeout operations. Disposed when session closes.
+	 */
+	private final Scheduler timeoutScheduler;
 
 	/** Transport layer implementation for message exchange */
 	private final AcpAgentTransport transport;
@@ -132,6 +141,14 @@ public class AcpAgentSession implements AcpSession {
 		this.transport = transport;
 		this.requestHandlers.putAll(requestHandlers);
 		this.notificationHandlers.putAll(notificationHandlers);
+
+		// Create per-session timeout scheduler with daemon thread
+		this.timeoutScheduler = Schedulers.fromExecutorService(
+				Executors.newScheduledThreadPool(1, r -> {
+					Thread t = new Thread(r, "acp-agent-timeout-" + sessionPrefix);
+					t.setDaemon(true);
+					return t;
+				}), "acp-agent-timeout-" + sessionPrefix);
 
 		this.transport.start(mono -> mono.flatMap(this::handle)).subscribe();
 	}
@@ -309,7 +326,7 @@ public class AcpAgentSession implements AcpSession {
 				this.pendingResponses.remove(requestId);
 				pendingResponseSink.error(error);
 			});
-		})).timeout(this.requestTimeout).handle((jsonRpcResponse, deliveredResponseSink) -> {
+		})).timeout(this.requestTimeout, timeoutScheduler).handle((jsonRpcResponse, deliveredResponseSink) -> {
 			if (jsonRpcResponse.error() != null) {
 				logger.error("Error handling request: {}", jsonRpcResponse.error());
 				deliveredResponseSink.error(new AcpError(jsonRpcResponse.error()));
@@ -365,6 +382,7 @@ public class AcpAgentSession implements AcpSession {
 		return Mono.fromRunnable(() -> {
 			activePrompt.set(null);
 			dismissPendingResponses();
+			timeoutScheduler.dispose();
 		}).then(this.transport.closeGracefully());
 	}
 
@@ -375,18 +393,46 @@ public class AcpAgentSession implements AcpSession {
 	public void close() {
 		activePrompt.set(null);
 		dismissPendingResponses();
+		timeoutScheduler.dispose();
+		transport.close();
 	}
 
 	/**
 	 * ACP-specific error wrapper for JSON-RPC errors.
+	 * Provides detailed error information including code, message, and data.
 	 */
 	public static class AcpError extends RuntimeException {
 
 		private final AcpSchema.JSONRPCError error;
 
 		public AcpError(AcpSchema.JSONRPCError error) {
-			super(error.message());
+			super(buildErrorMessage(error));
 			this.error = error;
+		}
+
+		private static String buildErrorMessage(AcpSchema.JSONRPCError error) {
+			StringBuilder sb = new StringBuilder();
+			sb.append(error.message());
+			sb.append(" [code=").append(error.code()).append("]");
+			if (error.data() != null) {
+				sb.append(": ").append(formatErrorData(error.data()));
+			}
+			return sb.toString();
+		}
+
+		private static String formatErrorData(Object data) {
+			if (data instanceof java.util.Map<?, ?> map) {
+				// Extract common fields for better readability
+				Object details = map.get("details");
+				if (details != null) {
+					return details.toString();
+				}
+				Object reason = map.get("reason");
+				if (reason != null) {
+					return reason.toString();
+				}
+			}
+			return data.toString();
 		}
 
 		public AcpSchema.JSONRPCError getError() {

@@ -16,8 +16,13 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Default implementation of the ACP (Agent Client Protocol) client session that manages
@@ -48,6 +53,11 @@ public class AcpClientSession implements AcpSession {
 
 	/** Duration to wait for request responses before timing out */
 	private final Duration requestTimeout;
+
+	/**
+	 * Per-session daemon scheduler for timeout operations. Disposed when session closes.
+	 */
+	private final Scheduler timeoutScheduler;
 
 	/** Transport layer implementation for message exchange */
 	private final AcpClientTransport transport;
@@ -124,6 +134,19 @@ public class AcpClientSession implements AcpSession {
 		this.requestHandlers.putAll(requestHandlers);
 		this.notificationHandlers.putAll(notificationHandlers);
 
+		logger.debug("AcpClientSession created with {} request handlers: {}",
+				requestHandlers.size(), requestHandlers.keySet());
+		logger.debug("AcpClientSession created with {} notification handlers: {}",
+				notificationHandlers.size(), notificationHandlers.keySet());
+
+		// Create per-session timeout scheduler with daemon thread
+		this.timeoutScheduler = Schedulers.fromExecutorService(
+				Executors.newScheduledThreadPool(1, r -> {
+					Thread t = new Thread(r, "acp-timeout-" + sessionPrefix);
+					t.setDaemon(true);
+					return t;
+				}), "acp-timeout-" + sessionPrefix);
+
 		this.transport.connect(mono -> mono.doOnNext(this::handle)).transform(connectHook).subscribe();
 	}
 
@@ -144,6 +167,7 @@ public class AcpClientSession implements AcpSession {
 					logger.warn("Unexpected response for unknown id {}", response.id());
 				}
 				else {
+					logger.trace("Completing pending response for id {}", response.id());
 					sink.success(response);
 				}
 			}
@@ -155,6 +179,7 @@ public class AcpClientSession implements AcpSession {
 		}
 		else if (message instanceof AcpSchema.JSONRPCRequest request) {
 			logger.debug("Received request: {}", request);
+			logger.trace("Incoming request method='{}' id={}", request.method(), request.id());
 			handleIncomingRequest(request).onErrorResume(error -> {
 				var errorResponse = new AcpSchema.JSONRPCResponse(AcpSchema.JSONRPC_VERSION, request.id(), null,
 						new AcpSchema.JSONRPCError(-32603, error.getMessage(), null));
@@ -166,6 +191,7 @@ public class AcpClientSession implements AcpSession {
 		}
 		else if (message instanceof AcpSchema.JSONRPCNotification notification) {
 			logger.debug("Received notification: {}", notification);
+			logger.trace("Incoming notification method='{}' params={}", notification.method(), notification.params());
 			handleIncomingNotification(notification).onErrorComplete(t -> {
 				logger.error("Error handling notification: {}", t.getMessage());
 				return true;
@@ -186,11 +212,19 @@ public class AcpClientSession implements AcpSession {
 			var handler = this.requestHandlers.get(request.method());
 			if (handler == null) {
 				MethodNotFoundError error = getMethodNotFoundError(request.method());
+				logger.warn("No handler registered for request method '{}': {} - {}",
+						request.method(), error.message(),
+						error.data() != null ? error.data() : "register a handler to support this operation");
+				logger.trace("Available handlers: {}", this.requestHandlers.keySet());
 				return Mono.just(new AcpSchema.JSONRPCResponse(AcpSchema.JSONRPC_VERSION, request.id(), null,
 						new AcpSchema.JSONRPCError(-32601, error.message(), error.data())));
 			}
 
+			logger.debug("Invoking handler for method '{}'", request.method());
+			logger.trace("Handler params for '{}': {}", request.method(), request.params());
 			return handler.handle(request.params())
+				.doOnSuccess(result -> logger.debug("Handler for '{}' completed successfully", request.method()))
+				.doOnError(error -> logger.debug("Handler for '{}' threw error: {}", request.method(), error.getMessage()))
 				.map(result -> new AcpSchema.JSONRPCResponse(AcpSchema.JSONRPC_VERSION, request.id(), result, null));
 		});
 	}
@@ -207,6 +241,9 @@ public class AcpClientSession implements AcpSession {
 			case AcpSchema.METHOD_FS_WRITE_TEXT_FILE:
 				return new MethodNotFoundError(method, "File system write not supported",
 						Map.of("reason", "Client does not have fs.writeTextFile capability"));
+			case AcpSchema.METHOD_SESSION_REQUEST_PERMISSION:
+				return new MethodNotFoundError(method, "Permission request not supported",
+						Map.of("reason", "No requestPermissionHandler registered - use --yolo flag or register a handler"));
 			case AcpSchema.METHOD_TERMINAL_CREATE:
 			case AcpSchema.METHOD_TERMINAL_OUTPUT:
 			case AcpSchema.METHOD_TERMINAL_RELEASE:
@@ -258,6 +295,7 @@ public class AcpClientSession implements AcpSession {
 
 		return Mono.deferContextual(ctx -> Mono.<AcpSchema.JSONRPCResponse>create(pendingResponseSink -> {
 			logger.debug("Sending message for method {} with id {}", method, requestId);
+			logger.trace("Outgoing request method='{}' id={} params={}", method, requestId, requestParams);
 			this.pendingResponses.put(requestId, pendingResponseSink);
 			AcpSchema.JSONRPCRequest jsonrpcRequest = new AcpSchema.JSONRPCRequest(AcpSchema.JSONRPC_VERSION, requestId,
 					method, requestParams);
@@ -266,7 +304,7 @@ public class AcpClientSession implements AcpSession {
 				this.pendingResponses.remove(requestId);
 				pendingResponseSink.error(error);
 			});
-		})).timeout(this.requestTimeout).handle((jsonRpcResponse, deliveredResponseSink) -> {
+		})).timeout(this.requestTimeout, timeoutScheduler).handle((jsonRpcResponse, deliveredResponseSink) -> {
 			if (jsonRpcResponse.error() != null) {
 				logger.error("Error handling request: {}", jsonRpcResponse.error());
 				deliveredResponseSink.error(new AcpError(jsonRpcResponse.error()));
@@ -301,7 +339,10 @@ public class AcpClientSession implements AcpSession {
 	 */
 	@Override
 	public Mono<Void> closeGracefully() {
-		return Mono.fromRunnable(this::dismissPendingResponses);
+		return Mono.fromRunnable(() -> {
+			dismissPendingResponses();
+			timeoutScheduler.dispose();
+		});
 	}
 
 	/**
@@ -310,18 +351,45 @@ public class AcpClientSession implements AcpSession {
 	@Override
 	public void close() {
 		dismissPendingResponses();
+		timeoutScheduler.dispose();
 	}
 
 	/**
 	 * ACP-specific error wrapper for JSON-RPC errors.
+	 * Provides detailed error information including code, message, and data.
 	 */
 	public static class AcpError extends RuntimeException {
 
 		private final AcpSchema.JSONRPCError error;
 
 		public AcpError(AcpSchema.JSONRPCError error) {
-			super(error.message());
+			super(buildErrorMessage(error));
 			this.error = error;
+		}
+
+		private static String buildErrorMessage(AcpSchema.JSONRPCError error) {
+			StringBuilder sb = new StringBuilder();
+			sb.append(error.message());
+			sb.append(" [code=").append(error.code()).append("]");
+			if (error.data() != null) {
+				sb.append(": ").append(formatErrorData(error.data()));
+			}
+			return sb.toString();
+		}
+
+		private static String formatErrorData(Object data) {
+			if (data instanceof java.util.Map<?, ?> map) {
+				// Extract common fields for better readability
+				Object details = map.get("details");
+				if (details != null) {
+					return details.toString();
+				}
+				Object reason = map.get("reason");
+				if (reason != null) {
+					return reason.toString();
+				}
+			}
+			return data.toString();
 		}
 
 		public AcpSchema.JSONRPCError getError() {

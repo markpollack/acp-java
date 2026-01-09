@@ -9,16 +9,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
+
+import java.util.concurrent.Executors;
 
 import com.agentclientprotocol.sdk.spec.AcpClientSession;
 import com.agentclientprotocol.sdk.spec.AcpClientTransport;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
 import com.agentclientprotocol.sdk.spec.AcpSession;
 import com.agentclientprotocol.sdk.util.Assert;
+import io.modelcontextprotocol.json.TypeRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Factory class for creating Agent Client Protocol (ACP) clients. ACP is a protocol that
@@ -95,6 +101,46 @@ import reactor.core.publisher.Mono;
 public interface AcpClient {
 
 	Logger logger = LoggerFactory.getLogger(AcpClient.class);
+
+	// ====================================================================
+	// Sync Handler Scheduler (library-owned, daemon threads)
+	// ====================================================================
+
+	/**
+	 * Library-owned scheduler for executing synchronous handlers.
+	 * Uses daemon threads with descriptive names to prevent JVM hang on exit.
+	 * This follows the best practice of never using global Schedulers.boundedElastic().
+	 */
+	Scheduler SYNC_HANDLER_SCHEDULER = Schedulers.fromExecutorService(
+			Executors.newCachedThreadPool(r -> {
+				Thread t = new Thread(r, "acp-sync-handler");
+				t.setDaemon(true);
+				return t;
+			}), "acp-sync-handler");
+
+	// ====================================================================
+	// Sync Handler Interfaces (for use with AcpClient.sync())
+	// ====================================================================
+
+	/**
+	 * Functional interface for synchronous request handlers. Unlike
+	 * {@link AcpClientSession.RequestHandler}, this interface returns the response
+	 * directly without wrapping in Mono, making it natural for blocking I/O operations.
+	 *
+	 * <p>Use with {@link SyncSpec} builder methods to register handlers that don't
+	 * require reactive programming patterns.
+	 *
+	 * @param <T> The response type
+	 */
+	@FunctionalInterface
+	interface SyncRequestHandler<T> {
+		/**
+		 * Handles an incoming request with the given parameters.
+		 * @param params The raw request parameters (requires unmarshalling)
+		 * @return The response object
+		 */
+		T handle(Object params);
+	}
 
 	/**
 	 * Start building a synchronous ACP client with the specified transport layer. The
@@ -299,7 +345,7 @@ public interface AcpClient {
 			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
 					Function.identity());
 
-			return new AcpAsyncClient(session);
+			return new AcpAsyncClient(session, transport);
 		}
 
 	}
@@ -338,6 +384,20 @@ public interface AcpClient {
 		}
 
 		/**
+		 * Converts a sync request handler to an async request handler.
+		 * Follows the MCP SDK pattern of wrapping sync handlers with Mono.fromCallable()
+		 * and scheduling on a library-owned daemon scheduler to prevent blocking the event loop.
+		 *
+		 * @param <T> The response type
+		 * @param syncHandler The synchronous handler to convert
+		 * @return An async handler that wraps the sync handler
+		 */
+		private static <T> AcpClientSession.RequestHandler<T> fromSync(SyncRequestHandler<T> syncHandler) {
+			return params -> Mono.fromCallable(() -> syncHandler.handle(params))
+					.subscribeOn(SYNC_HANDLER_SCHEDULER);
+		}
+
+		/**
 		 * Sets the duration to wait for agent responses before timing out requests. This
 		 * timeout applies to all requests made through the client, including initialize,
 		 * prompt, and session operations.
@@ -368,27 +428,138 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds a handler for file system read requests from the agent. When the agent
-		 * needs to read a file, this handler will be invoked with the request parameters.
-		 * @param handler The handler function that processes read requests
+		 * Adds a synchronous handler for file system read requests from the agent.
+		 * This is the preferred method for sync clients as it allows writing blocking
+		 * I/O code without reactive wrappers.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .readTextFileHandler(params -> {
+		 *     ReadTextFileRequest req = transport.unmarshalFrom(params, new TypeRef<>() {});
+		 *     String content = Files.readString(Path.of(req.path()));
+		 *     return new ReadTextFileResponse(content);
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The synchronous handler that processes read requests
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if handler is null
 		 */
-		public SyncSpec readTextFileHandler(AcpClientSession.RequestHandler<AcpSchema.ReadTextFileResponse> handler) {
+		public SyncSpec readTextFileHandler(SyncRequestHandler<AcpSchema.ReadTextFileResponse> handler) {
+			Assert.notNull(handler, "Read text file handler must not be null");
+			this.requestHandlers.put(AcpSchema.METHOD_FS_READ_TEXT_FILE, fromSync(handler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for file system read requests from the agent.
+		 * This is the preferred method as it provides type-safe request handling
+		 * without manual unmarshalling.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .readTextFileHandler(req ->
+		 *     new ReadTextFileResponse(Files.readString(Path.of(req.path()))))
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes read requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec readTextFileHandler(
+				Function<AcpSchema.ReadTextFileRequest, AcpSchema.ReadTextFileResponse> handler) {
+			Assert.notNull(handler, "Read text file handler must not be null");
+			SyncRequestHandler<AcpSchema.ReadTextFileResponse> rawHandler = params -> {
+				AcpSchema.ReadTextFileRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.ReadTextFileRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_FS_READ_TEXT_FILE, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds an async handler for file system read requests from the agent.
+		 * Use this when you need reactive composition or already have reactive code.
+		 * For blocking I/O, prefer the sync variant.
+		 *
+		 * @param handler The async handler function that processes read requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 * @deprecated Use the sync handler variant for simpler blocking code
+		 */
+		@Deprecated
+		public SyncSpec readTextFileHandlerAsync(AcpClientSession.RequestHandler<AcpSchema.ReadTextFileResponse> handler) {
 			Assert.notNull(handler, "Read text file handler must not be null");
 			this.requestHandlers.put(AcpSchema.METHOD_FS_READ_TEXT_FILE, handler);
 			return this;
 		}
 
 		/**
-		 * Adds a handler for file system write requests from the agent. When the agent
-		 * needs to write a file, this handler will be invoked with the request
-		 * parameters.
-		 * @param handler The handler function that processes write requests
+		 * Adds a synchronous handler for file system write requests from the agent.
+		 * This is the preferred method for sync clients as it allows writing blocking
+		 * I/O code without reactive wrappers.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .writeTextFileHandler(params -> {
+		 *     WriteTextFileRequest req = transport.unmarshalFrom(params, new TypeRef<>() {});
+		 *     Files.writeString(Path.of(req.path()), req.content());
+		 *     return new WriteTextFileResponse();
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The synchronous handler that processes write requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec writeTextFileHandler(SyncRequestHandler<AcpSchema.WriteTextFileResponse> handler) {
+			Assert.notNull(handler, "Write text file handler must not be null");
+			this.requestHandlers.put(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, fromSync(handler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for file system write requests from the agent.
+		 * This is the preferred method as it provides type-safe request handling
+		 * without manual unmarshalling.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .writeTextFileHandler(req -> {
+		 *     Files.writeString(Path.of(req.path()), req.content());
+		 *     return new WriteTextFileResponse();
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes write requests
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if handler is null
 		 */
 		public SyncSpec writeTextFileHandler(
+				Function<AcpSchema.WriteTextFileRequest, AcpSchema.WriteTextFileResponse> handler) {
+			Assert.notNull(handler, "Write text file handler must not be null");
+			SyncRequestHandler<AcpSchema.WriteTextFileResponse> rawHandler = params -> {
+				AcpSchema.WriteTextFileRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.WriteTextFileRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds an async handler for file system write requests from the agent.
+		 * Use this when you need reactive composition or already have reactive code.
+		 * For blocking I/O, prefer the sync variant.
+		 *
+		 * @param handler The async handler function that processes write requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 * @deprecated Use the sync handler variant for simpler blocking code
+		 */
+		@Deprecated
+		public SyncSpec writeTextFileHandlerAsync(
 				AcpClientSession.RequestHandler<AcpSchema.WriteTextFileResponse> handler) {
 			Assert.notNull(handler, "Write text file handler must not be null");
 			this.requestHandlers.put(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, handler);
@@ -396,13 +567,63 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds a handler for permission requests from the agent. When the agent needs
-		 * permission for a sensitive operation, this handler will be invoked.
-		 * @param handler The handler function that processes permission requests
+		 * Adds a synchronous handler for permission requests from the agent.
+		 * This is the preferred method for sync clients as it allows writing blocking
+		 * I/O code (like Console.readLine()) without reactive wrappers.
+		 *
+		 * @param handler The synchronous handler that processes permission requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec requestPermissionHandler(SyncRequestHandler<AcpSchema.RequestPermissionResponse> handler) {
+			Assert.notNull(handler, "Request permission handler must not be null");
+			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, fromSync(handler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for permission requests from the agent.
+		 * This is the preferred method as it provides type-safe request handling
+		 * without manual unmarshalling.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .requestPermissionHandler(req -> {
+		 *     System.out.println("Permission requested: " + req.toolCall().title());
+		 *     // Show UI or auto-approve
+		 *     return new RequestPermissionResponse(
+		 *         new RequestPermissionOutcome("approve", null));
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes permission requests
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if handler is null
 		 */
 		public SyncSpec requestPermissionHandler(
+				Function<AcpSchema.RequestPermissionRequest, AcpSchema.RequestPermissionResponse> handler) {
+			Assert.notNull(handler, "Request permission handler must not be null");
+			SyncRequestHandler<AcpSchema.RequestPermissionResponse> rawHandler = params -> {
+				AcpSchema.RequestPermissionRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.RequestPermissionRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds an async handler for permission requests from the agent.
+		 * Use this when you need reactive composition or already have reactive code.
+		 * For blocking I/O, prefer the sync variant.
+		 *
+		 * @param handler The async handler function that processes permission requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 * @deprecated Use the sync handler variant for simpler blocking code
+		 */
+		@Deprecated
+		public SyncSpec requestPermissionHandlerAsync(
 				AcpClientSession.RequestHandler<AcpSchema.RequestPermissionResponse> handler) {
 			Assert.notNull(handler, "Request permission handler must not be null");
 			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, handler);
@@ -410,15 +631,47 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds a consumer to be notified when session update notifications are received
-		 * from the agent. Session updates include agent thoughts, message chunks, and
-		 * other streaming content during prompt processing.
+		 * Adds a synchronous consumer to be notified when session update notifications
+		 * are received from the agent. This is the preferred method for sync clients.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .sessionUpdateConsumer(notification -> {
+		 *     if (notification.update() instanceof AgentMessageChunk msg) {
+		 *         System.out.println(msg.content());
+		 *     }
+		 * })
+		 * }</pre>
+		 *
 		 * @param sessionUpdateConsumer A consumer that receives session update
 		 * notifications. Must not be null.
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if sessionUpdateConsumer is null
 		 */
-		public SyncSpec sessionUpdateConsumer(
+		public SyncSpec sessionUpdateConsumer(Consumer<AcpSchema.SessionNotification> sessionUpdateConsumer) {
+			Assert.notNull(sessionUpdateConsumer, "Session update consumer must not be null");
+			// Convert sync consumer to async Function
+			this.sessionUpdateConsumers.add(notification -> {
+				return Mono.fromRunnable(() -> sessionUpdateConsumer.accept(notification))
+						.subscribeOn(SYNC_HANDLER_SCHEDULER)
+						.then();
+			});
+			return this;
+		}
+
+		/**
+		 * Adds an async consumer to be notified when session update notifications are
+		 * received from the agent. Use this when you need reactive composition.
+		 * For simple logging/printing, prefer the sync variant.
+		 *
+		 * @param sessionUpdateConsumer An async consumer that receives session update
+		 * notifications. Must not be null.
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if sessionUpdateConsumer is null
+		 * @deprecated Use the sync consumer variant for simpler blocking code
+		 */
+		@Deprecated
+		public SyncSpec sessionUpdateConsumerAsync(
 				Function<AcpSchema.SessionNotification, Mono<Void>> sessionUpdateConsumer) {
 			Assert.notNull(sessionUpdateConsumer, "Session update consumer must not be null");
 			this.sessionUpdateConsumers.add(sessionUpdateConsumer);
@@ -426,15 +679,35 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds a custom request handler for a specific method. This allows handling
-		 * additional agent requests beyond the standard file system and permission
-		 * operations.
+		 * Adds a synchronous custom request handler for a specific method.
+		 * This is the preferred method for sync clients.
+		 *
+		 * @param <T> The response type
 		 * @param method The method name (e.g., "custom/operation")
-		 * @param handler The handler function for this method
+		 * @param handler The synchronous handler function for this method
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if method or handler is null
 		 */
-		public SyncSpec requestHandler(String method, AcpClientSession.RequestHandler<?> handler) {
+		public <T> SyncSpec requestHandler(String method, SyncRequestHandler<T> handler) {
+			Assert.notNull(method, "Method must not be null");
+			Assert.notNull(handler, "Handler must not be null");
+			this.requestHandlers.put(method, fromSync(handler));
+			return this;
+		}
+
+		/**
+		 * Adds an async custom request handler for a specific method.
+		 * Use this when you need reactive composition or already have reactive code.
+		 * For blocking I/O, prefer the sync variant.
+		 *
+		 * @param method The method name (e.g., "custom/operation")
+		 * @param handler The async handler function for this method
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if method or handler is null
+		 * @deprecated Use the sync handler variant for simpler blocking code
+		 */
+		@Deprecated
+		public SyncSpec requestHandlerAsync(String method, AcpClientSession.RequestHandler<?> handler) {
 			Assert.notNull(method, "Method must not be null");
 			Assert.notNull(handler, "Handler must not be null");
 			this.requestHandlers.put(method, handler);
@@ -480,7 +753,7 @@ public interface AcpClient {
 			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
 					Function.identity());
 
-			return new AcpSyncClient(new AcpAsyncClient(session));
+			return new AcpSyncClient(new AcpAsyncClient(session, transport));
 		}
 
 	}

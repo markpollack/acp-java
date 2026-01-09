@@ -7,6 +7,7 @@ package com.agentclientprotocol.sdk.client;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
+import com.agentclientprotocol.sdk.spec.AcpClientTransport;
 import io.modelcontextprotocol.json.TypeRef;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
 import com.agentclientprotocol.sdk.spec.AcpSession;
@@ -113,17 +114,25 @@ public class AcpAsyncClient {
 	private final AcpSession session;
 
 	/**
+	 * The transport layer for this client.
+	 */
+	private final AcpClientTransport transport;
+
+	/**
 	 * Capabilities negotiated with the agent during initialization.
 	 */
 	private final AtomicReference<NegotiatedCapabilities> agentCapabilities = new AtomicReference<>();
 
 	/**
-	 * Creates a new AcpAsyncClient with the given session.
+	 * Creates a new AcpAsyncClient with the given session and transport.
 	 * @param session the ACP session for communication
+	 * @param transport the transport layer for this client
 	 */
-	AcpAsyncClient(AcpSession session) {
+	AcpAsyncClient(AcpSession session, AcpClientTransport transport) {
 		Assert.notNull(session, "Session must not be null");
+		Assert.notNull(transport, "Transport must not be null");
 		this.session = session;
+		this.transport = transport;
 	}
 
 	// --------------------------
@@ -159,6 +168,20 @@ public class AcpAsyncClient {
 				agentCapabilities.set(caps);
 				logger.debug("Negotiated agent capabilities: {}", caps);
 			});
+	}
+
+	/**
+	 * Initializes the ACP client with default settings.
+	 *
+	 * <p>
+	 * Uses protocol version 1 and default client capabilities. This is a convenience
+	 * method for the common case where no special capabilities need to be advertised.
+	 * </p>
+	 * @return a Mono emitting the initialization response with agent capabilities
+	 * @see #initialize(AcpSchema.InitializeRequest)
+	 */
+	public Mono<AcpSchema.InitializeResponse> initialize() {
+		return initialize(new AcpSchema.InitializeRequest(1, new AcpSchema.ClientCapabilities()));
 	}
 
 	/**
@@ -299,19 +322,28 @@ public class AcpAsyncClient {
 
 	/**
 	 * Closes the client connection immediately.
+	 *
+	 * <p>
+	 * This closes both the session and the underlying transport.
+	 * </p>
 	 */
 	public void close() {
 		logger.debug("Closing ACP client");
 		session.close();
+		transport.close();
 	}
 
 	/**
 	 * Gracefully closes the client connection, allowing pending operations to complete.
+	 *
+	 * <p>
+	 * This closes both the session and the underlying transport.
+	 * </p>
 	 * @return a Mono that completes when the connection is closed
 	 */
 	public Mono<Void> closeGracefully() {
 		logger.debug("Gracefully closing ACP client");
-		return session.closeGracefully();
+		return session.closeGracefully().then(transport.closeGracefully());
 	}
 
 }

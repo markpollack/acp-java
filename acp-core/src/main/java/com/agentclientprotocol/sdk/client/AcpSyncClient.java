@@ -90,12 +90,18 @@ public class AcpSyncClient implements AutoCloseable {
 	// --------------------------
 
 	/**
-	 * Closes the client connection immediately.
+	 * Closes the client connection and waits for shutdown to complete.
+	 *
+	 * <p>
+	 * This method blocks until the connection is closed or the timeout is reached.
+	 * For synchronous clients, this ensures resources are fully released when
+	 * try-with-resources completes.
+	 * </p>
 	 */
 	@Override
 	public void close() {
 		logger.debug("Closing ACP sync client");
-		this.delegate.close();
+		closeGracefully();
 	}
 
 	/**
@@ -133,6 +139,20 @@ public class AcpSyncClient implements AutoCloseable {
 	 */
 	public AcpSchema.InitializeResponse initialize(AcpSchema.InitializeRequest initializeRequest) {
 		return this.delegate.initialize(initializeRequest).block();
+	}
+
+	/**
+	 * Initializes the ACP client with default settings.
+	 *
+	 * <p>
+	 * Uses protocol version 1 and default client capabilities. This is a convenience
+	 * method for the common case where no special capabilities need to be advertised.
+	 * </p>
+	 * @return the initialization response with agent capabilities
+	 * @see #initialize(AcpSchema.InitializeRequest)
+	 */
+	public AcpSchema.InitializeResponse initialize() {
+		return this.delegate.initialize().block();
 	}
 
 	// --------------------------

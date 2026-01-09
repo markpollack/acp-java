@@ -80,6 +80,14 @@ public class StdioAcpAgentTransport implements AcpAgentTransport {
 	private Consumer<Throwable> exceptionHandler = t -> logger.error("Transport error", t);
 
 	/**
+	 * Creates a new StdioAcpAgentTransport with the default JsonMapper using
+	 * System.in and System.out for communication.
+	 */
+	public StdioAcpAgentTransport() {
+		this(McpJsonMapper.getDefault());
+	}
+
+	/**
 	 * Creates a new StdioAcpAgentTransport with the specified JsonMapper using
 	 * System.in and System.out for communication.
 	 * @param jsonMapper The JsonMapper to use for JSON serialization/deserialization
@@ -107,9 +115,19 @@ public class StdioAcpAgentTransport implements AcpAgentTransport {
 		this.inboundSink = Sinks.many().unicast().onBackpressureBuffer();
 		this.outboundSink = Sinks.many().unicast().onBackpressureBuffer();
 
-		// Use bounded schedulers for better resource management
-		this.inboundScheduler = Schedulers.fromExecutorService(Executors.newSingleThreadExecutor(), "agent-inbound");
-		this.outboundScheduler = Schedulers.fromExecutorService(Executors.newSingleThreadExecutor(), "agent-outbound");
+		// Use daemon threads so JVM can exit if closeGracefully() isn't called
+		this.inboundScheduler = Schedulers.fromExecutorService(
+				Executors.newSingleThreadExecutor(r -> {
+					Thread t = new Thread(r, "acp-agent-inbound");
+					t.setDaemon(true);
+					return t;
+				}), "agent-inbound");
+		this.outboundScheduler = Schedulers.fromExecutorService(
+				Executors.newSingleThreadExecutor(r -> {
+					Thread t = new Thread(r, "acp-agent-outbound");
+					t.setDaemon(true);
+					return t;
+				}), "agent-outbound");
 	}
 
 	@Override
