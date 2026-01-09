@@ -343,6 +343,75 @@ class SchedulerBestPracticesTest {
 	}
 
 	/**
+	 * Detects usage of {@code Mono.fromFuture()} which often wraps JDK CompletableFutures
+	 * that use ForkJoinPool.commonPool for completion.
+	 *
+	 * <p>Per BEST-PRACTICES-REACTIVE-SCHEDULERS.md, JDK APIs like {@code Process.onExit()},
+	 * {@code HttpClient} async methods, etc. use ForkJoinPool.commonPool for callbacks.
+	 * Wrapping these with Mono.fromFuture() doesn't change which thread runs the callbacks.
+	 *
+	 * <p>Alternatives:
+	 * <ul>
+	 * <li>Use blocking wait if in shutdown path: {@code process.waitFor()}</li>
+	 * <li>Add {@code .publishOn(scheduler)} after fromFuture to control downstream thread</li>
+	 * <li>Configure the underlying API with a custom executor (e.g., HttpClient.newBuilder().executor(...))</li>
+	 * </ul>
+	 *
+	 * <p>Note: WebSocket transports are excluded because they configure HttpClient with a custom
+	 * executor (acp-ws-client daemon threads), so their CompletableFutures don't use ForkJoinPool.
+	 */
+	@Test
+	void noMonoFromFutureWithJdkCompletableFutures() throws IOException {
+		List<String> violations = new ArrayList<>();
+
+		// Pattern to detect Mono.fromFuture() usage
+		Pattern pattern = Pattern.compile("Mono\\.fromFuture\\(");
+
+		// Files that are known to use properly configured executors (not ForkJoinPool.commonPool)
+		// WebSocket transports configure HttpClient with custom executor, so they're safe
+		List<String> excludedFiles = List.of(
+			"WebSocketAcpClientTransport.java",
+			"WebSocketAcpAgentTransport.java"
+		);
+
+		try (Stream<Path> paths = Files.walk(SOURCE_ROOT)) {
+			paths.filter(Files::isRegularFile)
+				.filter(p -> p.toString().endsWith(".java"))
+				.filter(p -> excludedFiles.stream().noneMatch(exc -> p.toString().endsWith(exc)))
+				.forEach(path -> {
+					try {
+						String content = Files.readString(path);
+						String[] lines = content.split("\n");
+						int lineNum = 0;
+						for (String line : lines) {
+							lineNum++;
+							// Skip comment lines
+							String trimmed = line.trim();
+							if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
+								continue;
+							}
+							Matcher matcher = pattern.matcher(line);
+							if (matcher.find()) {
+								violations.add(String.format(
+										"%s:%d - Mono.fromFuture() may use ForkJoinPool.commonPool " +
+										"(use blocking wait or add .publishOn(scheduler))",
+										relativePath(path), lineNum));
+							}
+						}
+					}
+					catch (IOException e) {
+						throw new RuntimeException("Failed to read: " + path, e);
+					}
+				});
+		}
+
+		assertThat(violations)
+			.describedAs("Mono.fromFuture() with JDK CompletableFutures uses ForkJoinPool.commonPool. " +
+					"Use blocking wait in shutdown paths or add .publishOn(scheduler). Violations found")
+			.isEmpty();
+	}
+
+	/**
 	 * Gets the 1-based line number for a character position in the content.
 	 */
 	private int getLineNumber(String content, int charPosition) {
