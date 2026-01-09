@@ -383,11 +383,13 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 				return Mono.<Process>empty();
 			}
 		})).doOnNext(process -> {
-			if (process.exitValue() != 0) {
-				logger.warn("Process terminated with code {}", process.exitValue());
+			int exitCode = process.exitValue();
+			// 143 = SIGTERM (128+15), 137 = SIGKILL (128+9) - expected when we destroy
+			if (exitCode == 0 || exitCode == 143 || exitCode == 137) {
+				logger.info("ACP agent process stopped (exit code {})", exitCode);
 			}
 			else {
-				logger.info("ACP agent process stopped");
+				logger.warn("Process terminated unexpectedly with code {}", exitCode);
 			}
 		}).then(Mono.fromRunnable(() -> {
 			try {
