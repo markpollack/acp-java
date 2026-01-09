@@ -1,0 +1,266 @@
+/*
+ * Copyright 2025-2025 the original author or authors.
+ */
+
+package com.agentclientprotocol.sdk.client;
+
+import java.time.Duration;
+import java.util.Map;
+import java.util.function.Function;
+
+import com.agentclientprotocol.sdk.MockAcpClientTransport;
+import com.agentclientprotocol.sdk.spec.AcpClientSession;
+import com.agentclientprotocol.sdk.spec.AcpSchema;
+import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Tests for typed handler API with auto-unmarshalling.
+ *
+ * <p>These tests verify that:
+ * <ul>
+ * <li>Typed handlers correctly unmarshall JSON-RPC params to typed request objects</li>
+ * <li>Handler responses are correctly serialized back to JSON-RPC responses</li>
+ * <li>Both sync and async typed handlers work correctly</li>
+ * </ul>
+ *
+ * @author Mark Pollack
+ */
+class TypedHandlerTest {
+
+	private static final Duration TIMEOUT = Duration.ofSeconds(5);
+
+	/**
+	 * Verifies that typed readTextFileHandler receives a properly unmarshalled
+	 * ReadTextFileRequest with the correct path.
+	 */
+	@Test
+	void typedReadTextFileHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testPath = "/home/user/test.txt";
+		String testContent = "file contents here";
+
+		// Build client with typed handler - explicit type to avoid ambiguity
+		Function<AcpSchema.ReadTextFileRequest, AcpSchema.ReadTextFileResponse> handler = req -> {
+			// Verify the request is properly typed and unmarshalled
+			assertThat(req).isNotNull();
+			assertThat(req.path()).isEqualTo(testPath);
+			return new AcpSchema.ReadTextFileResponse(testContent);
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.readTextFileHandler(handler)
+			.build();
+
+		// Simulate incoming request from agent with Map params (as JSON would be parsed)
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_FS_READ_TEXT_FILE,
+				Map.of("path", testPath)
+		);
+		transport.simulateIncomingMessage(request);
+
+		// Give time for async processing
+		Thread.sleep(200);
+
+		// Verify response was sent back
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+		assertThat(response.result()).isNotNull();
+
+		// MockTransport passes objects directly without JSON serialization,
+		// so result is the actual ReadTextFileResponse object
+		assertThat(response.result()).isInstanceOf(AcpSchema.ReadTextFileResponse.class);
+		AcpSchema.ReadTextFileResponse result = (AcpSchema.ReadTextFileResponse) response.result();
+		assertThat(result.content()).isEqualTo(testContent);
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that typed writeTextFileHandler receives a properly unmarshalled
+	 * WriteTextFileRequest with path and content.
+	 */
+	@Test
+	void typedWriteTextFileHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testPath = "/home/user/output.txt";
+		String testContent = "content to write";
+
+		// Track what the handler receives
+		StringBuilder receivedPath = new StringBuilder();
+		StringBuilder receivedContent = new StringBuilder();
+
+		// Build client with typed handler - explicit type to avoid ambiguity
+		Function<AcpSchema.WriteTextFileRequest, AcpSchema.WriteTextFileResponse> handler = req -> {
+			receivedPath.append(req.path());
+			receivedContent.append(req.content());
+			return new AcpSchema.WriteTextFileResponse();
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.writeTextFileHandler(handler)
+			.build();
+
+		// Simulate incoming request from agent
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_FS_WRITE_TEXT_FILE,
+				Map.of("path", testPath, "content", testContent)
+		);
+		transport.simulateIncomingMessage(request);
+
+		// Give time for async processing
+		Thread.sleep(200);
+
+		// Verify handler received correct values
+		assertThat(receivedPath.toString()).isEqualTo(testPath);
+		assertThat(receivedContent.toString()).isEqualTo(testContent);
+
+		// Verify response was sent back
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that typed requestPermissionHandler receives a properly unmarshalled
+	 * RequestPermissionRequest.
+	 */
+	@Test
+	void typedRequestPermissionHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testSessionId = "session-123";
+
+		// Track what the handler receives
+		StringBuilder receivedSessionId = new StringBuilder();
+
+		// Build client with typed handler - explicit type to avoid ambiguity
+		Function<AcpSchema.RequestPermissionRequest, AcpSchema.RequestPermissionResponse> handler = req -> {
+			receivedSessionId.append(req.sessionId());
+			return new AcpSchema.RequestPermissionResponse(
+					new AcpSchema.PermissionSelected("option-1"));
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.requestPermissionHandler(handler)
+			.build();
+
+		// Simulate incoming request from agent - toolCall is a nested structure
+		Map<String, Object> toolCall = Map.of(
+				"title", "Read File",
+				"description", "Reading test.txt"
+		);
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_SESSION_REQUEST_PERMISSION,
+				Map.of("sessionId", testSessionId, "toolCall", toolCall)
+		);
+		transport.simulateIncomingMessage(request);
+
+		// Give time for async processing
+		Thread.sleep(200);
+
+		// Verify handler received correct session ID
+		assertThat(receivedSessionId.toString()).isEqualTo(testSessionId);
+
+		// Verify response was sent back
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that async typed handlers work correctly with Mono return types.
+	 */
+	@Test
+	void asyncTypedReadTextFileHandlerWorksWithMono() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testPath = "/async/test.txt";
+		String testContent = "async content";
+
+		// Build async client with typed handler - explicit type to avoid ambiguity
+		Function<AcpSchema.ReadTextFileRequest, Mono<AcpSchema.ReadTextFileResponse>> handler = req -> {
+			assertThat(req.path()).isEqualTo(testPath);
+			return Mono.just(new AcpSchema.ReadTextFileResponse(testContent));
+		};
+		AcpAsyncClient client = AcpClient.async(transport)
+			.readTextFileHandler(handler)
+			.build();
+
+		// Simulate incoming request from agent
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_FS_READ_TEXT_FILE,
+				Map.of("path", testPath)
+		);
+		transport.simulateIncomingMessage(request);
+
+		// Give time for async processing
+		Thread.sleep(200);
+
+		// Verify response
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		// MockTransport passes objects directly without JSON serialization
+		assertThat(response.result()).isInstanceOf(AcpSchema.ReadTextFileResponse.class);
+		AcpSchema.ReadTextFileResponse result = (AcpSchema.ReadTextFileResponse) response.result();
+		assertThat(result.content()).isEqualTo(testContent);
+
+		client.closeGracefully().block();
+	}
+
+	/**
+	 * Verifies that handler errors are properly propagated as JSON-RPC errors.
+	 */
+	@Test
+	void typedHandlerErrorPropagatesToJsonRpcError() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String errorMessage = "File not found";
+
+		// Build client with handler that throws - explicit type to avoid ambiguity
+		Function<AcpSchema.ReadTextFileRequest, AcpSchema.ReadTextFileResponse> handler = req -> {
+			throw new RuntimeException(errorMessage);
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.readTextFileHandler(handler)
+			.build();
+
+		// Simulate incoming request
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_FS_READ_TEXT_FILE,
+				Map.of("path", "/nonexistent")
+		);
+		transport.simulateIncomingMessage(request);
+
+		// Give time for async processing
+		Thread.sleep(200);
+
+		// Verify error response
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNotNull();
+		assertThat(response.error().code()).isEqualTo(-32603); // Internal error
+		assertThat(response.error().message()).isEqualTo(errorMessage);
+
+		client.close();
+	}
+
+}

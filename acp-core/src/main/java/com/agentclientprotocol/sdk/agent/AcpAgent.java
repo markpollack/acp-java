@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import java.util.concurrent.Executors;
+
 import com.agentclientprotocol.sdk.spec.AcpAgentSession;
 import com.agentclientprotocol.sdk.spec.AcpAgentTransport;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
@@ -19,6 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Factory class for creating Agent Client Protocol (ACP) agents. ACP agents
@@ -92,6 +96,18 @@ public interface AcpAgent {
 	 * Default request timeout duration.
 	 */
 	Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(60);
+
+	/**
+	 * Library-owned scheduler for executing synchronous handlers.
+	 * Uses daemon threads with descriptive names to prevent JVM hang on exit.
+	 * This follows the best practice of never using global Schedulers.boundedElastic().
+	 */
+	Scheduler SYNC_HANDLER_SCHEDULER = Schedulers.fromExecutorService(
+			Executors.newCachedThreadPool(r -> {
+				Thread t = new Thread(r, "acp-agent-sync-handler");
+				t.setDaemon(true);
+				return t;
+			}), "acp-agent-sync-handler");
 
 	/**
 	 * Start building a synchronous ACP agent with the specified transport layer.
@@ -589,7 +605,7 @@ public interface AcpAgent {
 
 		// ========================================================================
 		// fromSync() conversion methods - following MCP SDK pattern
-		// Wraps sync handlers in Mono.fromCallable() with boundedElastic scheduler
+		// Wraps sync handlers in Mono.fromCallable() with library-owned daemon scheduler
 		// ========================================================================
 
 		private static InitializeHandler fromSync(SyncInitializeHandler syncHandler) {
@@ -597,7 +613,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static AuthenticateHandler fromSync(SyncAuthenticateHandler syncHandler) {
@@ -605,7 +621,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static NewSessionHandler fromSync(SyncNewSessionHandler syncHandler) {
@@ -613,7 +629,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static LoadSessionHandler fromSync(SyncLoadSessionHandler syncHandler) {
@@ -621,7 +637,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static PromptHandler fromSync(SyncPromptHandler syncHandler) {
@@ -633,7 +649,7 @@ public interface AcpAgent {
 				SyncSessionUpdateSender syncUpdater = (sessionId, update) -> asyncUpdater.sendUpdate(sessionId, update)
 					.block();
 				return syncHandler.handle(request, syncUpdater);
-			}).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+			}).subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static SetSessionModeHandler fromSync(SyncSetSessionModeHandler syncHandler) {
@@ -641,7 +657,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static SetSessionModelHandler fromSync(SyncSetSessionModelHandler syncHandler) {
@@ -649,7 +665,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return request -> Mono.fromCallable(() -> syncHandler.handle(request))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 		private static CancelHandler fromSync(SyncCancelHandler syncHandler) {
@@ -657,7 +673,7 @@ public interface AcpAgent {
 				return null;
 			}
 			return notification -> Mono.<Void>fromRunnable(() -> syncHandler.handle(notification))
-				.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+				.subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 
 	}

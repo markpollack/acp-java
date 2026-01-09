@@ -85,7 +85,11 @@ public class WebSocketAcpClientTransport implements AcpClientTransport {
 	 */
 	public WebSocketAcpClientTransport(URI serverUri, McpJsonMapper jsonMapper) {
 		this(serverUri, jsonMapper, HttpClient.newBuilder()
-			.executor(Executors.newCachedThreadPool())
+			.executor(Executors.newCachedThreadPool(r -> {
+				Thread t = new Thread(r, "acp-ws-client");
+				t.setDaemon(true);
+				return t;
+			}))
 			.build());
 	}
 

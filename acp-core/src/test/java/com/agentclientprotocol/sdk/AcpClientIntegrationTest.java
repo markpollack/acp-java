@@ -152,11 +152,8 @@ class AcpClientIntegrationTest {
 				}
 				return Mono.empty();
 			})
-			// Auto-allow permission requests
-			.requestPermissionHandler(params1 -> {
-				AcpSchema.RequestPermissionRequest request = transport.unmarshalFrom(params1,
-						new io.modelcontextprotocol.json.TypeRef<AcpSchema.RequestPermissionRequest>() {
-						});
+			// Auto-allow permission requests - using typed handler (no manual unmarshalling needed)
+			.requestPermissionHandler((AcpSchema.RequestPermissionRequest request) -> {
 				permissionRequestCount.incrementAndGet();
 				logger.info("Permission request for tool: {}", request.toolCall().toolCallId());
 
@@ -170,11 +167,8 @@ class AcpClientIntegrationTest {
 				logger.info("Auto-allowing with option: {}", optionId);
 				return Mono.just(new AcpSchema.RequestPermissionResponse(new AcpSchema.PermissionSelected(optionId)));
 			})
-			// Handle file read requests
-			.readTextFileHandler(params1 -> {
-				AcpSchema.ReadTextFileRequest request = transport.unmarshalFrom(params1,
-						new io.modelcontextprotocol.json.TypeRef<AcpSchema.ReadTextFileRequest>() {
-						});
+			// Handle file read requests - using typed handler (no manual unmarshalling needed)
+			.readTextFileHandler((AcpSchema.ReadTextFileRequest request) -> {
 				logger.info("File read request: path={}", request.path());
 				try {
 					String content = Files.readString(Path.of(request.path()));

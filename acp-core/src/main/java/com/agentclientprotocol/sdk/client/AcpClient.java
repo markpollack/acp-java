@@ -233,44 +233,86 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds a handler for file system read requests from the agent. When the agent
-		 * needs to read a file, this handler will be invoked with the request parameters.
-		 * @param handler The handler function that processes read requests
+		 * Adds a typed handler for file system read requests from the agent.
+		 * This is the preferred method as it provides type-safe request handling
+		 * without manual unmarshalling.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .readTextFileHandler(req ->
+		 *     Mono.fromCallable(() -> Files.readString(Path.of(req.path())))
+		 *         .map(ReadTextFileResponse::new))
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes read requests
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if handler is null
 		 */
-		public AsyncSpec readTextFileHandler(AcpClientSession.RequestHandler<AcpSchema.ReadTextFileResponse> handler) {
+		public AsyncSpec readTextFileHandler(
+				Function<AcpSchema.ReadTextFileRequest, Mono<AcpSchema.ReadTextFileResponse>> handler) {
 			Assert.notNull(handler, "Read text file handler must not be null");
-			this.requestHandlers.put(AcpSchema.METHOD_FS_READ_TEXT_FILE, handler);
+			AcpClientSession.RequestHandler<AcpSchema.ReadTextFileResponse> rawHandler = params -> {
+				AcpSchema.ReadTextFileRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.ReadTextFileRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_FS_READ_TEXT_FILE, rawHandler);
 			return this;
 		}
 
 		/**
-		 * Adds a handler for file system write requests from the agent. When the agent
-		 * needs to write a file, this handler will be invoked with the request
-		 * parameters.
-		 * @param handler The handler function that processes write requests
+		 * Adds a typed handler for file system write requests from the agent.
+		 * This is the preferred method as it provides type-safe request handling
+		 * without manual unmarshalling.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .writeTextFileHandler(req ->
+		 *     Mono.fromRunnable(() -> Files.writeString(Path.of(req.path()), req.content()))
+		 *         .then(Mono.just(new WriteTextFileResponse())))
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes write requests
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if handler is null
 		 */
 		public AsyncSpec writeTextFileHandler(
-				AcpClientSession.RequestHandler<AcpSchema.WriteTextFileResponse> handler) {
+				Function<AcpSchema.WriteTextFileRequest, Mono<AcpSchema.WriteTextFileResponse>> handler) {
 			Assert.notNull(handler, "Write text file handler must not be null");
-			this.requestHandlers.put(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, handler);
+			AcpClientSession.RequestHandler<AcpSchema.WriteTextFileResponse> rawHandler = params -> {
+				AcpSchema.WriteTextFileRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.WriteTextFileRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, rawHandler);
 			return this;
 		}
 
 		/**
-		 * Adds a handler for permission requests from the agent. When the agent needs
-		 * permission for a sensitive operation, this handler will be invoked.
-		 * @param handler The handler function that processes permission requests
+		 * Adds a typed handler for permission requests from the agent.
+		 * This is the preferred method as it provides type-safe request handling
+		 * without manual unmarshalling.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .requestPermissionHandler(req ->
+		 *     Mono.just(new RequestPermissionResponse(
+		 *         new RequestPermissionOutcome("approve", null))))
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes permission requests
 		 * @return This builder instance for method chaining
 		 * @throws IllegalArgumentException if handler is null
 		 */
 		public AsyncSpec requestPermissionHandler(
-				AcpClientSession.RequestHandler<AcpSchema.RequestPermissionResponse> handler) {
+				Function<AcpSchema.RequestPermissionRequest, Mono<AcpSchema.RequestPermissionResponse>> handler) {
 			Assert.notNull(handler, "Request permission handler must not be null");
-			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, handler);
+			AcpClientSession.RequestHandler<AcpSchema.RequestPermissionResponse> rawHandler = params -> {
+				AcpSchema.RequestPermissionRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.RequestPermissionRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, rawHandler);
 			return this;
 		}
 
@@ -479,23 +521,6 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds an async handler for file system read requests from the agent.
-		 * Use this when you need reactive composition or already have reactive code.
-		 * For blocking I/O, prefer the sync variant.
-		 *
-		 * @param handler The async handler function that processes read requests
-		 * @return This builder instance for method chaining
-		 * @throws IllegalArgumentException if handler is null
-		 * @deprecated Use the sync handler variant for simpler blocking code
-		 */
-		@Deprecated
-		public SyncSpec readTextFileHandlerAsync(AcpClientSession.RequestHandler<AcpSchema.ReadTextFileResponse> handler) {
-			Assert.notNull(handler, "Read text file handler must not be null");
-			this.requestHandlers.put(AcpSchema.METHOD_FS_READ_TEXT_FILE, handler);
-			return this;
-		}
-
-		/**
 		 * Adds a synchronous handler for file system write requests from the agent.
 		 * This is the preferred method for sync clients as it allows writing blocking
 		 * I/O code without reactive wrappers.
@@ -549,24 +574,6 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds an async handler for file system write requests from the agent.
-		 * Use this when you need reactive composition or already have reactive code.
-		 * For blocking I/O, prefer the sync variant.
-		 *
-		 * @param handler The async handler function that processes write requests
-		 * @return This builder instance for method chaining
-		 * @throws IllegalArgumentException if handler is null
-		 * @deprecated Use the sync handler variant for simpler blocking code
-		 */
-		@Deprecated
-		public SyncSpec writeTextFileHandlerAsync(
-				AcpClientSession.RequestHandler<AcpSchema.WriteTextFileResponse> handler) {
-			Assert.notNull(handler, "Write text file handler must not be null");
-			this.requestHandlers.put(AcpSchema.METHOD_FS_WRITE_TEXT_FILE, handler);
-			return this;
-		}
-
-		/**
 		 * Adds a synchronous handler for permission requests from the agent.
 		 * This is the preferred method for sync clients as it allows writing blocking
 		 * I/O code (like Console.readLine()) without reactive wrappers.
@@ -613,24 +620,6 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds an async handler for permission requests from the agent.
-		 * Use this when you need reactive composition or already have reactive code.
-		 * For blocking I/O, prefer the sync variant.
-		 *
-		 * @param handler The async handler function that processes permission requests
-		 * @return This builder instance for method chaining
-		 * @throws IllegalArgumentException if handler is null
-		 * @deprecated Use the sync handler variant for simpler blocking code
-		 */
-		@Deprecated
-		public SyncSpec requestPermissionHandlerAsync(
-				AcpClientSession.RequestHandler<AcpSchema.RequestPermissionResponse> handler) {
-			Assert.notNull(handler, "Request permission handler must not be null");
-			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, handler);
-			return this;
-		}
-
-		/**
 		 * Adds a synchronous consumer to be notified when session update notifications
 		 * are received from the agent. This is the preferred method for sync clients.
 		 *
@@ -660,25 +649,6 @@ public interface AcpClient {
 		}
 
 		/**
-		 * Adds an async consumer to be notified when session update notifications are
-		 * received from the agent. Use this when you need reactive composition.
-		 * For simple logging/printing, prefer the sync variant.
-		 *
-		 * @param sessionUpdateConsumer An async consumer that receives session update
-		 * notifications. Must not be null.
-		 * @return This builder instance for method chaining
-		 * @throws IllegalArgumentException if sessionUpdateConsumer is null
-		 * @deprecated Use the sync consumer variant for simpler blocking code
-		 */
-		@Deprecated
-		public SyncSpec sessionUpdateConsumerAsync(
-				Function<AcpSchema.SessionNotification, Mono<Void>> sessionUpdateConsumer) {
-			Assert.notNull(sessionUpdateConsumer, "Session update consumer must not be null");
-			this.sessionUpdateConsumers.add(sessionUpdateConsumer);
-			return this;
-		}
-
-		/**
 		 * Adds a synchronous custom request handler for a specific method.
 		 * This is the preferred method for sync clients.
 		 *
@@ -692,25 +662,6 @@ public interface AcpClient {
 			Assert.notNull(method, "Method must not be null");
 			Assert.notNull(handler, "Handler must not be null");
 			this.requestHandlers.put(method, fromSync(handler));
-			return this;
-		}
-
-		/**
-		 * Adds an async custom request handler for a specific method.
-		 * Use this when you need reactive composition or already have reactive code.
-		 * For blocking I/O, prefer the sync variant.
-		 *
-		 * @param method The method name (e.g., "custom/operation")
-		 * @param handler The async handler function for this method
-		 * @return This builder instance for method chaining
-		 * @throws IllegalArgumentException if method or handler is null
-		 * @deprecated Use the sync handler variant for simpler blocking code
-		 */
-		@Deprecated
-		public SyncSpec requestHandlerAsync(String method, AcpClientSession.RequestHandler<?> handler) {
-			Assert.notNull(method, "Method must not be null");
-			Assert.notNull(handler, "Handler must not be null");
-			this.requestHandlers.put(method, handler);
 			return this;
 		}
 

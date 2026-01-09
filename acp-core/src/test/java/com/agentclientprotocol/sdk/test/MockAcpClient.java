@@ -336,24 +336,16 @@ public class MockAcpClient {
 					mockClient.updateLatch.countDown();
 					return Mono.empty();
 				})
-				.requestPermissionHandler(params -> {
-					AcpSchema.RequestPermissionRequest request = transport.unmarshalFrom(params,
-							new TypeRef<AcpSchema.RequestPermissionRequest>() {
-							});
+				// Using typed handlers (no manual unmarshalling needed)
+				.requestPermissionHandler((AcpSchema.RequestPermissionRequest request) -> {
 					mockClient.receivedPermissionRequests.add(request);
 					return Mono.just(permissionHandler.apply(request));
 				})
-				.readTextFileHandler(params -> {
-					AcpSchema.ReadTextFileRequest request = transport.unmarshalFrom(params,
-							new TypeRef<AcpSchema.ReadTextFileRequest>() {
-							});
+				.readTextFileHandler((AcpSchema.ReadTextFileRequest request) -> {
 					mockClient.receivedFileReadRequests.add(request);
 					return Mono.just(readFileHandler.apply(request));
 				})
-				.writeTextFileHandler(params -> {
-					AcpSchema.WriteTextFileRequest request = transport.unmarshalFrom(params,
-							new TypeRef<AcpSchema.WriteTextFileRequest>() {
-							});
+				.writeTextFileHandler((AcpSchema.WriteTextFileRequest request) -> {
 					mockClient.receivedFileWriteRequests.add(request);
 					return Mono.just(writeFileHandler.apply(request));
 				})

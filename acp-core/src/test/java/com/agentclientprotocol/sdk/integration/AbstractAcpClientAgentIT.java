@@ -298,13 +298,10 @@ public abstract class AbstractAcpClientAgentIT {
 				.build();
 			agentRef.set(agent);
 
-			// Build client with permission handler
+			// Build client with permission handler - using typed handler
 			AcpAsyncClient client = AcpClient.async(clientTransport)
 				.requestTimeout(TIMEOUT)
-				.requestPermissionHandler(params -> {
-					AcpSchema.RequestPermissionRequest permRequest = clientTransport.unmarshalFrom(params,
-							new io.modelcontextprotocol.json.TypeRef<AcpSchema.RequestPermissionRequest>() {
-							});
+				.requestPermissionHandler((AcpSchema.RequestPermissionRequest permRequest) -> {
 					assertThat(permRequest.toolCall().title()).isEqualTo("Write File");
 					return Mono.just(new AcpSchema.RequestPermissionResponse(new AcpSchema.PermissionSelected("allow")));
 				})
@@ -367,13 +364,10 @@ public abstract class AbstractAcpClientAgentIT {
 				.build();
 			agentRef.set(agent);
 
-			// Build client with file read handler
+			// Build client with file read handler - using typed handler
 			AcpAsyncClient client = AcpClient.async(clientTransport)
 				.requestTimeout(TIMEOUT)
-				.readTextFileHandler(params -> {
-					AcpSchema.ReadTextFileRequest request = clientTransport.unmarshalFrom(params,
-							new io.modelcontextprotocol.json.TypeRef<AcpSchema.ReadTextFileRequest>() {
-							});
+				.readTextFileHandler((AcpSchema.ReadTextFileRequest request) -> {
 					assertThat(request.path()).isEqualTo("/src/Main.java");
 					return Mono.just(new AcpSchema.ReadTextFileResponse("public class Main {}"));
 				})
