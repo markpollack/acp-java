@@ -371,39 +371,47 @@ public class StdioAcpClientTransport implements AcpClientTransport {
 			inboundSink.tryEmitComplete();
 			outboundSink.tryEmitComplete();
 			errorSink.tryEmitComplete();
-		}).then(Mono.defer(() -> {
+
 			// Destroy process FIRST - this closes streams and unblocks readLine()
-			logger.debug("Sending TERM to process");
+			// Use blocking waitFor() instead of Mono.fromFuture(process.onExit())
+			// to avoid ForkJoinPool.commonPool (per BEST-PRACTICES-REACTIVE-SCHEDULERS.md Rule 1)
 			if (this.process != null) {
+				logger.debug("Sending TERM to process");
 				this.process.destroy();
-				return Mono.fromFuture(process.onExit());
+				try {
+					boolean exited = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+					if (exited) {
+						int exitCode = process.exitValue();
+						// 143 = SIGTERM (128+15), 137 = SIGKILL (128+9) - expected when we destroy
+						if (exitCode == 0 || exitCode == 143 || exitCode == 137) {
+							logger.info("ACP agent process stopped (exit code {})", exitCode);
+						}
+						else {
+							logger.warn("Process terminated unexpectedly with code {}", exitCode);
+						}
+					}
+					else {
+						logger.warn("Process did not exit within timeout, forcing kill");
+						process.destroyForcibly();
+					}
+				}
+				catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					logger.debug("Interrupted while waiting for process exit");
+				}
 			}
-			else {
-				logger.warn("Process not started");
-				return Mono.<Process>empty();
-			}
-		})).doOnNext(process -> {
-			int exitCode = process.exitValue();
-			// 143 = SIGTERM (128+15), 137 = SIGKILL (128+9) - expected when we destroy
-			if (exitCode == 0 || exitCode == 143 || exitCode == 137) {
-				logger.info("ACP agent process stopped (exit code {})", exitCode);
-			}
-			else {
-				logger.warn("Process terminated unexpectedly with code {}", exitCode);
-			}
-		}).then(Mono.fromRunnable(() -> {
+
+			// Now that process is dead and streams closed, threads should be unblocked
 			try {
-				// Now that process is dead and streams closed, threads should be unblocked
 				inboundScheduler.dispose();
 				errorScheduler.dispose();
 				outboundScheduler.dispose();
-
 				logger.debug("Graceful shutdown completed");
 			}
 			catch (Exception e) {
 				logger.error("Error during graceful shutdown", e);
 			}
-		})).then();
+		});
 	}
 
 	public Sinks.Many<String> getErrorSink() {
