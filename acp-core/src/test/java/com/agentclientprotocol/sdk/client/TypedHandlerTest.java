@@ -263,4 +263,210 @@ class TypedHandlerTest {
 		client.close();
 	}
 
+	// ========================================================================
+	// Terminal Handler Tests
+	// ========================================================================
+
+	/**
+	 * Verifies that typed createTerminalHandler receives a properly unmarshalled
+	 * CreateTerminalRequest.
+	 */
+	@Test
+	void typedCreateTerminalHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testSessionId = "session-123";
+		String testCommand = "/bin/bash";
+		String terminalId = "terminal-456";
+
+		StringBuilder receivedSessionId = new StringBuilder();
+		StringBuilder receivedCommand = new StringBuilder();
+
+		Function<AcpSchema.CreateTerminalRequest, AcpSchema.CreateTerminalResponse> handler = req -> {
+			receivedSessionId.append(req.sessionId());
+			receivedCommand.append(req.command());
+			return new AcpSchema.CreateTerminalResponse(terminalId);
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.createTerminalHandler(handler)
+			.build();
+
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_TERMINAL_CREATE,
+				Map.of("sessionId", testSessionId, "command", testCommand)
+		);
+		transport.simulateIncomingMessage(request);
+
+		Thread.sleep(200);
+
+		assertThat(receivedSessionId.toString()).isEqualTo(testSessionId);
+		assertThat(receivedCommand.toString()).isEqualTo(testCommand);
+
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that typed terminalOutputHandler receives a properly unmarshalled
+	 * TerminalOutputRequest.
+	 */
+	@Test
+	void typedTerminalOutputHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testSessionId = "session-123";
+		String testTerminalId = "terminal-456";
+		String testOutput = "command output here";
+
+		StringBuilder receivedTerminalId = new StringBuilder();
+
+		Function<AcpSchema.TerminalOutputRequest, AcpSchema.TerminalOutputResponse> handler = req -> {
+			receivedTerminalId.append(req.terminalId());
+			return new AcpSchema.TerminalOutputResponse(testOutput, false, null);
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.terminalOutputHandler(handler)
+			.build();
+
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_TERMINAL_OUTPUT,
+				Map.of("sessionId", testSessionId, "terminalId", testTerminalId)
+		);
+		transport.simulateIncomingMessage(request);
+
+		Thread.sleep(200);
+
+		assertThat(receivedTerminalId.toString()).isEqualTo(testTerminalId);
+
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that typed releaseTerminalHandler receives a properly unmarshalled
+	 * ReleaseTerminalRequest.
+	 */
+	@Test
+	void typedReleaseTerminalHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testTerminalId = "terminal-456";
+
+		StringBuilder receivedTerminalId = new StringBuilder();
+
+		Function<AcpSchema.ReleaseTerminalRequest, AcpSchema.ReleaseTerminalResponse> handler = req -> {
+			receivedTerminalId.append(req.terminalId());
+			return new AcpSchema.ReleaseTerminalResponse();
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.releaseTerminalHandler(handler)
+			.build();
+
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_TERMINAL_RELEASE,
+				Map.of("sessionId", "session-123", "terminalId", testTerminalId)
+		);
+		transport.simulateIncomingMessage(request);
+
+		Thread.sleep(200);
+
+		assertThat(receivedTerminalId.toString()).isEqualTo(testTerminalId);
+
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that typed waitForTerminalExitHandler receives a properly unmarshalled
+	 * WaitForTerminalExitRequest.
+	 */
+	@Test
+	void typedWaitForTerminalExitHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testTerminalId = "terminal-456";
+
+		StringBuilder receivedTerminalId = new StringBuilder();
+
+		Function<AcpSchema.WaitForTerminalExitRequest, AcpSchema.WaitForTerminalExitResponse> handler = req -> {
+			receivedTerminalId.append(req.terminalId());
+			return new AcpSchema.WaitForTerminalExitResponse(0, null);
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.waitForTerminalExitHandler(handler)
+			.build();
+
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_TERMINAL_WAIT_FOR_EXIT,
+				Map.of("sessionId", "session-123", "terminalId", testTerminalId)
+		);
+		transport.simulateIncomingMessage(request);
+
+		Thread.sleep(200);
+
+		assertThat(receivedTerminalId.toString()).isEqualTo(testTerminalId);
+
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
+	/**
+	 * Verifies that typed killTerminalHandler receives a properly unmarshalled
+	 * KillTerminalCommandRequest.
+	 */
+	@Test
+	void typedKillTerminalHandlerReceivesUnmarshalledRequest() throws InterruptedException {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		String testTerminalId = "terminal-456";
+
+		StringBuilder receivedTerminalId = new StringBuilder();
+
+		Function<AcpSchema.KillTerminalCommandRequest, AcpSchema.KillTerminalCommandResponse> handler = req -> {
+			receivedTerminalId.append(req.terminalId());
+			return new AcpSchema.KillTerminalCommandResponse();
+		};
+		AcpSyncClient client = AcpClient.sync(transport)
+			.killTerminalHandler(handler)
+			.build();
+
+		AcpSchema.JSONRPCRequest request = new AcpSchema.JSONRPCRequest(
+				AcpSchema.JSONRPC_VERSION,
+				"test-id",
+				AcpSchema.METHOD_TERMINAL_KILL,
+				Map.of("sessionId", "session-123", "terminalId", testTerminalId)
+		);
+		transport.simulateIncomingMessage(request);
+
+		Thread.sleep(200);
+
+		assertThat(receivedTerminalId.toString()).isEqualTo(testTerminalId);
+
+		AcpSchema.JSONRPCMessage sentMessage = transport.getLastSentMessage();
+		assertThat(sentMessage).isInstanceOf(AcpSchema.JSONRPCResponse.class);
+		AcpSchema.JSONRPCResponse response = (AcpSchema.JSONRPCResponse) sentMessage;
+		assertThat(response.error()).isNull();
+
+		client.close();
+	}
+
 }

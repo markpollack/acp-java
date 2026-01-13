@@ -317,6 +317,142 @@ public interface AcpClient {
 		}
 
 		/**
+		 * Adds a typed handler for terminal creation requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .createTerminalHandler(req -> {
+		 *     String terminalId = UUID.randomUUID().toString();
+		 *     // Start process with req.command(), req.args(), req.cwd()
+		 *     return Mono.just(new CreateTerminalResponse(terminalId));
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal creation requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public AsyncSpec createTerminalHandler(
+				Function<AcpSchema.CreateTerminalRequest, Mono<AcpSchema.CreateTerminalResponse>> handler) {
+			Assert.notNull(handler, "Create terminal handler must not be null");
+			AcpClientSession.RequestHandler<AcpSchema.CreateTerminalResponse> rawHandler = params -> {
+				AcpSchema.CreateTerminalRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.CreateTerminalRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_CREATE, rawHandler);
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal output requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .terminalOutputHandler(req -> {
+		 *     String output = getTerminalOutput(req.terminalId());
+		 *     return Mono.just(new TerminalOutputResponse(output, false, null));
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal output requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public AsyncSpec terminalOutputHandler(
+				Function<AcpSchema.TerminalOutputRequest, Mono<AcpSchema.TerminalOutputResponse>> handler) {
+			Assert.notNull(handler, "Terminal output handler must not be null");
+			AcpClientSession.RequestHandler<AcpSchema.TerminalOutputResponse> rawHandler = params -> {
+				AcpSchema.TerminalOutputRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.TerminalOutputRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_OUTPUT, rawHandler);
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal release requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .releaseTerminalHandler(req -> {
+		 *     releaseTerminal(req.terminalId());
+		 *     return Mono.just(new ReleaseTerminalResponse());
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal release requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public AsyncSpec releaseTerminalHandler(
+				Function<AcpSchema.ReleaseTerminalRequest, Mono<AcpSchema.ReleaseTerminalResponse>> handler) {
+			Assert.notNull(handler, "Release terminal handler must not be null");
+			AcpClientSession.RequestHandler<AcpSchema.ReleaseTerminalResponse> rawHandler = params -> {
+				AcpSchema.ReleaseTerminalRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.ReleaseTerminalRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_RELEASE, rawHandler);
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for wait-for-terminal-exit requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .waitForTerminalExitHandler(req -> {
+		 *     int exitCode = waitForExit(req.terminalId());
+		 *     return Mono.just(new WaitForTerminalExitResponse(exitCode, null));
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes wait-for-exit requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public AsyncSpec waitForTerminalExitHandler(
+				Function<AcpSchema.WaitForTerminalExitRequest, Mono<AcpSchema.WaitForTerminalExitResponse>> handler) {
+			Assert.notNull(handler, "Wait for terminal exit handler must not be null");
+			AcpClientSession.RequestHandler<AcpSchema.WaitForTerminalExitResponse> rawHandler = params -> {
+				AcpSchema.WaitForTerminalExitRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.WaitForTerminalExitRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_WAIT_FOR_EXIT, rawHandler);
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal kill requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .killTerminalHandler(req -> {
+		 *     killProcess(req.terminalId());
+		 *     return Mono.just(new KillTerminalCommandResponse());
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal kill requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public AsyncSpec killTerminalHandler(
+				Function<AcpSchema.KillTerminalCommandRequest, Mono<AcpSchema.KillTerminalCommandResponse>> handler) {
+			Assert.notNull(handler, "Kill terminal handler must not be null");
+			AcpClientSession.RequestHandler<AcpSchema.KillTerminalCommandResponse> rawHandler = params -> {
+				AcpSchema.KillTerminalCommandRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.KillTerminalCommandRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_KILL, rawHandler);
+			return this;
+		}
+
+		/**
 		 * Adds a consumer to be notified when session update notifications are received
 		 * from the agent. Session updates include agent thoughts, message chunks, and
 		 * other streaming content during prompt processing.
@@ -553,6 +689,147 @@ public interface AcpClient {
 				return handler.apply(request);
 			};
 			this.requestHandlers.put(AcpSchema.METHOD_SESSION_REQUEST_PERMISSION, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal creation requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .createTerminalHandler(req -> {
+		 *     String terminalId = UUID.randomUUID().toString();
+		 *     // Start process with req.command(), req.args(), req.cwd()
+		 *     return new CreateTerminalResponse(terminalId);
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal creation requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec createTerminalHandler(
+				Function<AcpSchema.CreateTerminalRequest, AcpSchema.CreateTerminalResponse> handler) {
+			Assert.notNull(handler, "Create terminal handler must not be null");
+			SyncRequestHandler<AcpSchema.CreateTerminalResponse> rawHandler = params -> {
+				logger.debug("createTerminal request params: {}", params);
+				AcpSchema.CreateTerminalRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.CreateTerminalRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_CREATE, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal output requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .terminalOutputHandler(req -> {
+		 *     String output = getTerminalOutput(req.terminalId());
+		 *     return new TerminalOutputResponse(output, false, null);
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal output requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec terminalOutputHandler(
+				Function<AcpSchema.TerminalOutputRequest, AcpSchema.TerminalOutputResponse> handler) {
+			Assert.notNull(handler, "Terminal output handler must not be null");
+			SyncRequestHandler<AcpSchema.TerminalOutputResponse> rawHandler = params -> {
+				logger.debug("terminalOutput request params: {}", params);
+				AcpSchema.TerminalOutputRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.TerminalOutputRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_OUTPUT, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal release requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .releaseTerminalHandler(req -> {
+		 *     releaseTerminal(req.terminalId());
+		 *     return new ReleaseTerminalResponse();
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal release requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec releaseTerminalHandler(
+				Function<AcpSchema.ReleaseTerminalRequest, AcpSchema.ReleaseTerminalResponse> handler) {
+			Assert.notNull(handler, "Release terminal handler must not be null");
+			SyncRequestHandler<AcpSchema.ReleaseTerminalResponse> rawHandler = params -> {
+				logger.debug("releaseTerminal request params: {}", params);
+				AcpSchema.ReleaseTerminalRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.ReleaseTerminalRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_RELEASE, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for wait-for-terminal-exit requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .waitForTerminalExitHandler(req -> {
+		 *     int exitCode = waitForExit(req.terminalId());
+		 *     return new WaitForTerminalExitResponse(exitCode, null);
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes wait-for-exit requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec waitForTerminalExitHandler(
+				Function<AcpSchema.WaitForTerminalExitRequest, AcpSchema.WaitForTerminalExitResponse> handler) {
+			Assert.notNull(handler, "Wait for terminal exit handler must not be null");
+			SyncRequestHandler<AcpSchema.WaitForTerminalExitResponse> rawHandler = params -> {
+				logger.debug("waitForTerminalExit request params: {}", params);
+				AcpSchema.WaitForTerminalExitRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.WaitForTerminalExitRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_WAIT_FOR_EXIT, fromSync(rawHandler));
+			return this;
+		}
+
+		/**
+		 * Adds a typed handler for terminal kill requests from the agent.
+		 *
+		 * <p>Example usage:
+		 * <pre>{@code
+		 * .killTerminalHandler(req -> {
+		 *     killProcess(req.terminalId());
+		 *     return new KillTerminalCommandResponse();
+		 * })
+		 * }</pre>
+		 *
+		 * @param handler The typed handler function that processes terminal kill requests
+		 * @return This builder instance for method chaining
+		 * @throws IllegalArgumentException if handler is null
+		 */
+		public SyncSpec killTerminalHandler(
+				Function<AcpSchema.KillTerminalCommandRequest, AcpSchema.KillTerminalCommandResponse> handler) {
+			Assert.notNull(handler, "Kill terminal handler must not be null");
+			SyncRequestHandler<AcpSchema.KillTerminalCommandResponse> rawHandler = params -> {
+				logger.debug("killTerminal request params: {}", params);
+				AcpSchema.KillTerminalCommandRequest request = transport.unmarshalFrom(params,
+						new TypeRef<AcpSchema.KillTerminalCommandRequest>() {});
+				return handler.apply(request);
+			};
+			this.requestHandlers.put(AcpSchema.METHOD_TERMINAL_KILL, fromSync(rawHandler));
 			return this;
 		}
 
