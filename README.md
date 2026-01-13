@@ -88,9 +88,9 @@ AcpSyncAgent agent = AcpAgent.sync(transport)
         new InitializeResponse(1, new AgentCapabilities(), List.of()))
     .newSessionHandler(req ->
         new NewSessionResponse(UUID.randomUUID().toString(), null, null))
-    .promptHandler((req, updater) -> {
+    .promptHandler((req, context) -> {
         // Send updates using blocking void method
-        updater.sendUpdate(req.sessionId(),
+        context.sendUpdate(req.sessionId(),
             new AgentMessageChunk("agent_message_chunk",
                 new TextContent("Hello from the agent!")));
         // Return response directly (no Mono!)
@@ -121,8 +121,8 @@ AcpAsyncAgent agent = AcpAgent.async(transport)
         new InitializeResponse(1, new AgentCapabilities(), List.of())))
     .newSessionHandler(req -> Mono.just(
         new NewSessionResponse(UUID.randomUUID().toString(), null, null)))
-    .promptHandler((req, updater) ->
-        updater.sendUpdate(req.sessionId(),
+    .promptHandler((req, context) ->
+        context.sendUpdate(req.sessionId(),
                 new AgentMessageChunk("agent_message_chunk",
                     new TextContent("Hello from the agent!")))
             .then(Mono.just(new PromptResponse(StopReason.END_TURN))))
@@ -142,12 +142,12 @@ Send real-time updates to the client during prompt processing.
 
 **Agent (Sync) - recommended:**
 ```java
-.promptHandler((req, updater) -> {
+.promptHandler((req, context) -> {
     // Blocking void calls - simple and straightforward
-    updater.sendUpdate(req.sessionId(),
+    context.sendUpdate(req.sessionId(),
         new AgentThoughtChunk("agent_thought_chunk",
             new TextContent("Thinking...")));
-    updater.sendUpdate(req.sessionId(),
+    context.sendUpdate(req.sessionId(),
         new AgentMessageChunk("agent_message_chunk",
             new TextContent("Here's my response.")));
     return new PromptResponse(StopReason.END_TURN);
@@ -156,11 +156,11 @@ Send real-time updates to the client during prompt processing.
 
 **Agent (Async):**
 ```java
-.promptHandler((request, updater) -> {
-    return updater.sendUpdate(request.sessionId(),
+.promptHandler((request, context) -> {
+    return context.sendUpdate(request.sessionId(),
             new AgentThoughtChunk("agent_thought_chunk",
                 new TextContent("Thinking...")))
-        .then(updater.sendUpdate(request.sessionId(),
+        .then(context.sendUpdate(request.sessionId(),
             new AgentMessageChunk("agent_message_chunk",
                 new TextContent("Here's my response."))))
         .then(Mono.just(new PromptResponse(StopReason.END_TURN)));
@@ -181,31 +181,25 @@ AcpSyncClient client = AcpClient.sync(transport)
 
 ### 4. Agent-to-Client Requests
 
-Agents can request file operations from the client.
+Agents can request file operations from the client. The `context` parameter provides access to all agent capabilities.
 
 **Agent (Sync) - reading files:**
 ```java
-// Store agent reference for use in prompt handler
-AtomicReference<AcpSyncAgent> agentRef = new AtomicReference<>();
-
 AcpSyncAgent agent = AcpAgent.sync(transport)
-    .promptHandler((req, updater) -> {
-        AcpSyncAgent agentInstance = agentRef.get();
-
+    .promptHandler((req, context) -> {
         // Read a file from the client's filesystem
-        var fileResponse = agentInstance.readTextFile(
+        var fileResponse = context.readTextFile(
             new ReadTextFileRequest(req.sessionId(), "pom.xml", null, 10));
         String content = fileResponse.content();
 
         // Write a file
-        agentInstance.writeTextFile(
+        context.writeTextFile(
             new WriteTextFileRequest(req.sessionId(), "output.txt", "Hello!"));
 
         return new PromptResponse(StopReason.END_TURN);
     })
     .build();
 
-agentRef.set(agent);  // Store reference before running
 agent.run();
 ```
 
@@ -338,9 +332,27 @@ agent.start().block();  // Starts WebSocket server on port 8080
 
 ```bash
 ./mvnw compile      # Compile
-./mvnw test         # Run tests (246 tests across 2 modules)
+./mvnw test         # Run unit tests (258 tests)
+./mvnw verify       # Run unit tests + integration tests
 ./mvnw install      # Install to local Maven repository
 ```
+
+### Integration Tests
+
+Integration tests connect to real ACP agents and require additional setup:
+
+```bash
+# Gemini CLI integration tests (requires API key and gemini CLI)
+export GEMINI_API_KEY=your_key_here
+./mvnw verify -pl acp-core
+```
+
+**Test Categories:**
+| Type | Command | Count | Requirements |
+|------|---------|-------|--------------|
+| Unit tests | `./mvnw test` | 258 | None |
+| Clean shutdown IT | `./mvnw verify` | 4 | None |
+| Gemini CLI IT | `./mvnw verify` | 5 | `GEMINI_API_KEY`, `gemini` CLI in PATH |
 
 ## Testing Your Code
 
@@ -368,7 +380,7 @@ MockAcpClient mockClient = MockAcpClient.builder(pair.clientTransport())
 - Capability negotiation
 - Structured error handling
 - Full protocol compliance (all SessionUpdate types, MCP configs, `_meta` extensibility)
-- 232 tests
+- 258 tests
 
 ### v1.0.0 (Planned)
 - Maven Central publishing
