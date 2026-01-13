@@ -68,9 +68,43 @@ var response = client.prompt(new PromptRequest(
 client.close();
 ```
 
-### 2. Hello World Agent
+### 2. Hello World Agent (Sync)
 
-Create a minimal ACP agent:
+Create a minimal ACP agent using the sync API (recommended for simplicity):
+
+```java
+import com.agentclientprotocol.sdk.agent.*;
+import com.agentclientprotocol.sdk.agent.transport.*;
+import com.agentclientprotocol.sdk.spec.AcpSchema.*;
+import java.util.List;
+import java.util.UUID;
+
+// Create stdio transport
+var transport = new StdioAcpAgentTransport();
+
+// Build sync agent - handlers use plain return values (no Mono!)
+AcpSyncAgent agent = AcpAgent.sync(transport)
+    .initializeHandler(req ->
+        new InitializeResponse(1, new AgentCapabilities(), List.of()))
+    .newSessionHandler(req ->
+        new NewSessionResponse(UUID.randomUUID().toString(), null, null))
+    .promptHandler((req, updater) -> {
+        // Send updates using blocking void method
+        updater.sendUpdate(req.sessionId(),
+            new AgentMessageChunk("agent_message_chunk",
+                new TextContent("Hello from the agent!")));
+        // Return response directly (no Mono!)
+        return new PromptResponse(StopReason.END_TURN);
+    })
+    .build();
+
+// Run agent (blocks until client disconnects)
+agent.run();
+```
+
+### 2b. Hello World Agent (Async)
+
+For reactive applications, use the async API:
 
 ```java
 import com.agentclientprotocol.sdk.agent.*;
@@ -78,25 +112,24 @@ import com.agentclientprotocol.sdk.agent.transport.*;
 import com.agentclientprotocol.sdk.spec.AcpSchema.*;
 import reactor.core.publisher.Mono;
 import java.util.List;
+import java.util.UUID;
 
-// Create stdio transport
 var transport = new StdioAcpAgentTransport();
 
-// Build agent with handlers
 AcpAsyncAgent agent = AcpAgent.async(transport)
     .initializeHandler(req -> Mono.just(
-        new InitializeResponse(1, new AgentCapabilities(), List.of())
-    ))
+        new InitializeResponse(1, new AgentCapabilities(), List.of())))
     .newSessionHandler(req -> Mono.just(
-        new NewSessionResponse(java.util.UUID.randomUUID().toString(), null, null)
-    ))
-    .promptHandler((req, updater) -> Mono.just(
-        new PromptResponse(StopReason.END_TURN)
-    ))
+        new NewSessionResponse(UUID.randomUUID().toString(), null, null)))
+    .promptHandler((req, updater) ->
+        updater.sendUpdate(req.sessionId(),
+                new AgentMessageChunk("agent_message_chunk",
+                    new TextContent("Hello from the agent!")))
+            .then(Mono.just(new PromptResponse(StopReason.END_TURN))))
     .build();
 
-// Start and run
-agent.start().block();
+// Start and await termination
+agent.start().then(agent.awaitTermination()).block();
 ```
 
 ---
@@ -105,8 +138,23 @@ agent.start().block();
 
 ### 3. Streaming Updates
 
-Send real-time updates to the client during prompt processing:
+Send real-time updates to the client during prompt processing.
 
+**Agent (Sync) - recommended:**
+```java
+.promptHandler((req, updater) -> {
+    // Blocking void calls - simple and straightforward
+    updater.sendUpdate(req.sessionId(),
+        new AgentThoughtChunk("agent_thought_chunk",
+            new TextContent("Thinking...")));
+    updater.sendUpdate(req.sessionId(),
+        new AgentMessageChunk("agent_message_chunk",
+            new TextContent("Here's my response.")));
+    return new PromptResponse(StopReason.END_TURN);
+})
+```
+
+**Agent (Async):**
 ```java
 .promptHandler((request, updater) -> {
     return updater.sendUpdate(request.sessionId(),
@@ -119,43 +167,59 @@ Send real-time updates to the client during prompt processing:
 })
 ```
 
-Clients receive updates via the session update consumer:
-
+**Client - receiving updates:**
 ```java
-AcpAsyncClient client = AcpClient.async(transport)
+AcpSyncClient client = AcpClient.sync(transport)
     .sessionUpdateConsumer(notification -> {
-        System.out.println("Update: " + notification.update());
-        return Mono.empty();
+        var update = notification.update();
+        if (update instanceof AgentMessageChunk msg) {
+            System.out.print(((TextContent) msg.content()).text());
+        }
     })
     .build();
 ```
 
 ### 4. Agent-to-Client Requests
 
-Agents can request file operations from the client:
+Agents can request file operations from the client.
 
+**Agent (Sync) - reading files:**
 ```java
-.promptHandler((request, updater) -> {
-    // Read a file from the client's filesystem
-    return agent.readTextFile(new ReadTextFileRequest(
-            request.sessionId(), "/src/Main.java", null, null))
-        .flatMap(file -> {
-            String content = file.content();
-            // Process content...
-            return Mono.just(new PromptResponse(StopReason.END_TURN));
-        });
-})
+// Store agent reference for use in prompt handler
+AtomicReference<AcpSyncAgent> agentRef = new AtomicReference<>();
+
+AcpSyncAgent agent = AcpAgent.sync(transport)
+    .promptHandler((req, updater) -> {
+        AcpSyncAgent agentInstance = agentRef.get();
+
+        // Read a file from the client's filesystem
+        var fileResponse = agentInstance.readTextFile(
+            new ReadTextFileRequest(req.sessionId(), "pom.xml", null, 10));
+        String content = fileResponse.content();
+
+        // Write a file
+        agentInstance.writeTextFile(
+            new WriteTextFileRequest(req.sessionId(), "output.txt", "Hello!"));
+
+        return new PromptResponse(StopReason.END_TURN);
+    })
+    .build();
+
+agentRef.set(agent);  // Store reference before running
+agent.run();
 ```
 
-Clients must register handlers for agent requests:
-
+**Client - registering file handlers:**
 ```java
-AcpAsyncClient client = AcpClient.async(transport)
-    .readTextFileHandler(params -> {
-        // Read file and return content
-        ReadTextFileRequest req = /* unmarshal params */;
+AcpSyncClient client = AcpClient.sync(transport)
+    .readTextFileHandler((ReadTextFileRequest req) -> {
+        // Handlers receive typed requests directly
         String content = Files.readString(Path.of(req.path()));
-        return Mono.just(new ReadTextFileResponse(content));
+        return new ReadTextFileResponse(content);
+    })
+    .writeTextFileHandler((WriteTextFileRequest req) -> {
+        Files.writeString(Path.of(req.path()), req.content());
+        return new WriteTextFileResponse();
     })
     .build();
 ```
@@ -166,7 +230,7 @@ Check what features the peer supports before using them:
 
 ```java
 // Client: check agent capabilities after initialize
-client.initialize(new InitializeRequest(1, clientCaps)).block();
+client.initialize(new InitializeRequest(1, clientCaps));
 
 NegotiatedCapabilities agentCaps = client.getAgentCapabilities();
 if (agentCaps.supportsLoadSession()) {
