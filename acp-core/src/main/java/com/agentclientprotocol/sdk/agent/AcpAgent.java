@@ -170,33 +170,38 @@ public interface AcpAgent {
 	}
 
 	/**
-	 * Interface for sending session updates during prompt processing.
-	 */
-	interface SessionUpdateSender {
-
-		/**
-		 * Sends a session update notification to the client.
-		 * @param sessionId The session ID
-		 * @param update The session update to send
-		 * @return A Mono that completes when the notification is sent
-		 */
-		Mono<Void> sendUpdate(String sessionId, AcpSchema.SessionUpdate update);
-
-	}
-
-	/**
-	 * Functional interface for handling prompt requests with streaming updates.
+	 * Functional interface for handling prompt requests with full agent context.
+	 *
+	 * <p>
+	 * The handler receives a {@link PromptContext} that provides access to all agent
+	 * capabilities including file operations, permission requests, terminal operations,
+	 * and session updates.
+	 *
+	 * <p>Example usage:
+	 * <pre>{@code
+	 * AcpAgent.async(transport)
+	 *     .promptHandler((request, context) -> {
+	 *         // Read a file
+	 *         var file = context.readTextFile(new ReadTextFileRequest(...)).block();
+	 *
+	 *         // Send progress update
+	 *         context.sendUpdate(sessionId, new AgentThoughtChunk(...));
+	 *
+	 *         return Mono.just(new PromptResponse(StopReason.END_TURN));
+	 *     })
+	 *     .build();
+	 * }</pre>
 	 */
 	@FunctionalInterface
 	interface PromptHandler {
 
 		/**
-		 * Handles a prompt request, optionally sending session updates during processing.
+		 * Handles a prompt request with full access to agent capabilities.
 		 * @param request The prompt request
-		 * @param updater Interface for sending session updates
+		 * @param context Context providing all agent capabilities (file ops, permissions, updates, etc.)
 		 * @return A Mono containing the prompt response
 		 */
-		Mono<AcpSchema.PromptResponse> handle(AcpSchema.PromptRequest request, SessionUpdateSender updater);
+		Mono<AcpSchema.PromptResponse> handle(AcpSchema.PromptRequest request, PromptContext context);
 
 	}
 
@@ -279,34 +284,38 @@ public interface AcpAgent {
 	}
 
 	/**
-	 * Synchronous interface for sending session updates during prompt processing.
-	 * Blocks until the update is sent, returns void.
-	 */
-	interface SyncSessionUpdateSender {
-
-		/**
-		 * Sends a session update notification to the client. Blocks until sent.
-		 * @param sessionId The session ID
-		 * @param update The session update to send
-		 */
-		void sendUpdate(String sessionId, AcpSchema.SessionUpdate update);
-
-	}
-
-	/**
-	 * Synchronous functional interface for handling prompt requests with streaming updates.
-	 * Returns a plain value instead of Mono for use with sync agents.
+	 * Synchronous functional interface for handling prompt requests with full agent context.
+	 *
+	 * <p>
+	 * The handler receives a {@link SyncPromptContext} that provides blocking access to all
+	 * agent capabilities including file operations, permission requests, terminal operations,
+	 * and session updates.
+	 *
+	 * <p>Example usage:
+	 * <pre>{@code
+	 * AcpAgent.sync(transport)
+	 *     .promptHandler((request, context) -> {
+	 *         // Read a file (blocks)
+	 *         var file = context.readTextFile(new ReadTextFileRequest(...));
+	 *
+	 *         // Send progress update (blocks)
+	 *         context.sendUpdate(sessionId, new AgentThoughtChunk(...));
+	 *
+	 *         return new PromptResponse(StopReason.END_TURN);
+	 *     })
+	 *     .build();
+	 * }</pre>
 	 */
 	@FunctionalInterface
 	interface SyncPromptHandler {
 
 		/**
-		 * Handles a prompt request, optionally sending session updates during processing.
+		 * Handles a prompt request with full access to agent capabilities.
 		 * @param request The prompt request
-		 * @param updater Interface for sending session updates (blocking)
+		 * @param context Context providing blocking access to all agent capabilities
 		 * @return The prompt response
 		 */
-		AcpSchema.PromptResponse handle(AcpSchema.PromptRequest request, SyncSessionUpdateSender updater);
+		AcpSchema.PromptResponse handle(AcpSchema.PromptRequest request, SyncPromptContext context);
 
 	}
 
@@ -557,7 +566,7 @@ public interface AcpAgent {
 
 		/**
 		 * Sets the synchronous handler for prompt requests.
-		 * @param handler The sync prompt handler (returns plain value, uses SyncSessionUpdateSender)
+		 * @param handler The sync prompt handler (returns plain value, receives SyncPromptContext)
 		 * @return This builder for chaining
 		 */
 		public SyncAgentBuilder promptHandler(SyncPromptHandler handler) {
@@ -644,11 +653,10 @@ public interface AcpAgent {
 			if (syncHandler == null) {
 				return null;
 			}
-			return (request, asyncUpdater) -> Mono.fromCallable(() -> {
-				// Create a blocking wrapper around the async SessionUpdateSender
-				SyncSessionUpdateSender syncUpdater = (sessionId, update) -> asyncUpdater.sendUpdate(sessionId, update)
-					.block();
-				return syncHandler.handle(request, syncUpdater);
+			return (request, asyncContext) -> Mono.fromCallable(() -> {
+				// Create a blocking wrapper around the async PromptContext
+				SyncPromptContext syncContext = new DefaultSyncPromptContext(asyncContext);
+				return syncHandler.handle(request, syncContext);
 			}).subscribeOn(SYNC_HANDLER_SCHEDULER);
 		}
 

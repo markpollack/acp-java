@@ -130,13 +130,15 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 				});
 			}
 
-			// Prompt handler - uses the session update sender
+			// Prompt handler - provides full PromptContext with all agent capabilities
 			if (promptHandler != null) {
 				requestHandlers.put(AcpSchema.METHOD_SESSION_PROMPT, params -> {
 					AcpSchema.PromptRequest request = transport.unmarshalFrom(params,
 							new TypeRef<AcpSchema.PromptRequest>() {
 							});
-					return promptHandler.handle(request, (sessionId, update) -> sendSessionUpdate(sessionId, update))
+					// Create PromptContext that wraps this agent, giving handler access to all capabilities
+					PromptContext context = new DefaultPromptContext(this);
+					return promptHandler.handle(request, context)
 						.cast(Object.class);
 				});
 			}

@@ -171,6 +171,20 @@ public class AcpSyncAgent {
 	}
 
 	/**
+	 * Returns the capabilities negotiated with the client during initialization.
+	 *
+	 * <p>
+	 * This method returns null if initialization has not been completed yet.
+	 * Use this to check what features the client supports before calling
+	 * methods like {@link #readTextFile} or {@link #createTerminal}.
+	 * </p>
+	 * @return the negotiated client capabilities, or null if not initialized
+	 */
+	public com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities getClientCapabilities() {
+		return asyncAgent.getClientCapabilities();
+	}
+
+	/**
 	 * Returns the underlying async agent.
 	 * @return The async agent
 	 */

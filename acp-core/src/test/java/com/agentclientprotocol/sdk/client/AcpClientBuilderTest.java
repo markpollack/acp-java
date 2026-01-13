@@ -66,4 +66,23 @@ class AcpClientBuilderTest {
 		assertThat(syncClient).isNotNull();
 	}
 
+	@Test
+	void syncClientGetAgentCapabilitiesReturnsNullBeforeInitialization() {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		AcpAsyncClient asyncClient = AcpClient.async(transport).build();
+		AcpSyncClient syncClient = new AcpSyncClient(asyncClient);
+
+		// Before initialization, capabilities should be null
+		assertThat(syncClient.getAgentCapabilities()).isNull();
+	}
+
+	@Test
+	void asyncClientGetAgentCapabilitiesReturnsNullBeforeInitialization() {
+		MockAcpClientTransport transport = new MockAcpClientTransport();
+		AcpAsyncClient asyncClient = AcpClient.async(transport).build();
+
+		// Before initialization, capabilities should be null
+		assertThat(asyncClient.getAgentCapabilities()).isNull();
+	}
+
 }

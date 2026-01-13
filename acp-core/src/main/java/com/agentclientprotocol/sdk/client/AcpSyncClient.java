@@ -155,6 +155,18 @@ public class AcpSyncClient implements AutoCloseable {
 		return this.delegate.initialize().block();
 	}
 
+	/**
+	 * Returns the capabilities negotiated with the agent during initialization.
+	 *
+	 * <p>
+	 * This method returns null if {@link #initialize} has not been called yet.
+	 * </p>
+	 * @return the negotiated agent capabilities, or null if not initialized
+	 */
+	public com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities getAgentCapabilities() {
+		return this.delegate.getAgentCapabilities();
+	}
+
 	// --------------------------
 	// Authentication
 	// --------------------------

@@ -292,4 +292,42 @@ class AcpAgentTest {
 		transportPair.closeGracefully().block(TIMEOUT);
 	}
 
+	@Test
+	void syncAgentGetClientCapabilitiesReturnsNullBeforeInitialization() {
+		var transportPair = InMemoryTransportPair.create();
+		try {
+			AcpSyncAgent agent = AcpAgent.sync(transportPair.agentTransport())
+				.initializeHandler(
+						request -> new AcpSchema.InitializeResponse(1, new AcpSchema.AgentCapabilities(), List.of()))
+				.build();
+
+			// Before initialization, capabilities should be null
+			assertThat(agent.getClientCapabilities()).isNull();
+
+			agent.close();
+		}
+		finally {
+			transportPair.closeGracefully().block(TIMEOUT);
+		}
+	}
+
+	@Test
+	void asyncAgentGetClientCapabilitiesReturnsNullBeforeInitialization() {
+		var transportPair = InMemoryTransportPair.create();
+		try {
+			AcpAsyncAgent agent = AcpAgent.async(transportPair.agentTransport())
+				.initializeHandler(request -> Mono
+					.just(new AcpSchema.InitializeResponse(1, new AcpSchema.AgentCapabilities(), List.of())))
+				.build();
+
+			// Before initialization, capabilities should be null
+			assertThat(agent.getClientCapabilities()).isNull();
+
+			agent.close();
+		}
+		finally {
+			transportPair.closeGracefully().block(TIMEOUT);
+		}
+	}
+
 }
