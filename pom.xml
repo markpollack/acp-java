@@ -15,6 +15,7 @@
 
     <modules>
         <module>acp-core</module>
+        <module>acp-test</module>
         <module>acp-websocket-jetty</module>
     </modules>
 
@@ -104,6 +105,11 @@
             <dependency>
                 <groupId>com.agentclientprotocol</groupId>
                 <artifactId>acp-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.agentclientprotocol</groupId>
+                <artifactId>acp-test</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
