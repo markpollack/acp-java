@@ -77,14 +77,17 @@ class WebSocketAcpClientTransportTest {
 			// Expected to fail
 		}
 
-		// Second connect should also attempt (not throw IllegalStateException)
+		// Second connect should also attempt (not throw "Already connected")
 		// because failed connections reset the connected flag
 		try {
 			transport.connect(msg -> Mono.empty()).block(Duration.ofMillis(100));
 		}
 		catch (Exception e) {
-			// Should fail with connection error, not IllegalStateException
-			assertThat(e).isNotInstanceOf(IllegalStateException.class);
+			// Should fail with connection/timeout error, not "Already connected"
+			// Note: Reactor throws IllegalStateException for timeouts, so we check the message
+			if (e instanceof IllegalStateException) {
+				assertThat(e.getMessage()).doesNotContain("Already connected");
+			}
 		}
 	}
 

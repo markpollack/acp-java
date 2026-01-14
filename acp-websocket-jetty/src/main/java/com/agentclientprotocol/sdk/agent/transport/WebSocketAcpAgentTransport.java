@@ -190,6 +190,11 @@ public class WebSocketAcpAgentTransport implements AcpAgentTransport {
 	private void handleIncomingMessages(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
 		this.inboundSink.asFlux()
 			.flatMap(message -> Mono.just(message).transform(handler))
+			.doOnNext(response -> {
+				if (response != null) {
+					this.outboundSink.tryEmitNext(response);
+				}
+			})
 			.doOnTerminate(() -> {
 				this.outboundSink.tryEmitComplete();
 			})

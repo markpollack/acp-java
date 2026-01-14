@@ -523,7 +523,7 @@ public interface AcpClient {
 			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
 					Function.identity());
 
-			return new AcpAsyncClient(session, transport);
+			return new AcpAsyncClient(session, transport, clientCapabilities);
 		}
 
 	}
@@ -918,7 +918,7 @@ public interface AcpClient {
 			AcpSession session = new AcpClientSession(requestTimeout, transport, requestHandlers, notificationHandlers,
 					Function.identity());
 
-			return new AcpSyncClient(new AcpAsyncClient(session, transport));
+			return new AcpSyncClient(new AcpAsyncClient(session, transport, clientCapabilities));
 		}
 
 	}

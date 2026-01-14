@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The WebSocket transports are functional but require additional server setup.
  * </p>
  */
-@Disabled("Pending Jetty 12 WebSocket configuration - see learnings/step-1.6-websocket-transport.md")
+// @Disabled - Re-enabled to investigate WebSocket issues
 class WebSocketClientAgentTest {
 
 	private static final Duration TIMEOUT = Duration.ofSeconds(10);
@@ -90,7 +90,7 @@ class WebSocketClientAgentTest {
 			.build();
 
 		agent.start().block(TIMEOUT);
-		Thread.sleep(200); // Allow server to fully start
+		Thread.sleep(500); // Allow server to fully start
 
 		// Set up client
 		URI serverUri = URI.create("ws://localhost:" + TEST_PORT + "/acp");
@@ -245,7 +245,7 @@ class WebSocketClientAgentTest {
 		agentRef.set(agent);
 
 		agent.start().block(TIMEOUT);
-		Thread.sleep(200);
+		Thread.sleep(500); // Allow server to fully start
 
 		// Set up client with file handler
 		URI serverUri = URI.create("ws://localhost:" + (TEST_PORT + 4) + "/acp");
@@ -257,8 +257,10 @@ class WebSocketClientAgentTest {
 			})
 			.build();
 
-		// Full flow
-		client.initialize(new AcpSchema.InitializeRequest(1, new AcpSchema.ClientCapabilities())).block(TIMEOUT);
+		// Full flow - advertise file read capability
+		AcpSchema.FileSystemCapability fsCaps = new AcpSchema.FileSystemCapability(true, false);
+		AcpSchema.ClientCapabilities caps = new AcpSchema.ClientCapabilities(fsCaps, false);
+		client.initialize(new AcpSchema.InitializeRequest(1, caps)).block(TIMEOUT);
 		client.newSession(new AcpSchema.NewSessionRequest("/workspace", List.of())).block(TIMEOUT);
 
 		AcpSchema.PromptResponse response = client

@@ -119,20 +119,39 @@ public class AcpAsyncClient {
 	private final AcpClientTransport transport;
 
 	/**
+	 * Client capabilities configured via the builder. Used by no-arg initialize().
+	 */
+	private final AcpSchema.ClientCapabilities clientCapabilities;
+
+	/**
 	 * Capabilities negotiated with the agent during initialization.
 	 */
 	private final AtomicReference<NegotiatedCapabilities> agentCapabilities = new AtomicReference<>();
 
 	/**
-	 * Creates a new AcpAsyncClient with the given session and transport.
+	 * Creates a new AcpAsyncClient with the given session and transport. Uses default
+	 * client capabilities.
 	 * @param session the ACP session for communication
 	 * @param transport the transport layer for this client
 	 */
 	AcpAsyncClient(AcpSession session, AcpClientTransport transport) {
+		this(session, transport, null);
+	}
+
+	/**
+	 * Creates a new AcpAsyncClient with the given session, transport, and client
+	 * capabilities.
+	 * @param session the ACP session for communication
+	 * @param transport the transport layer for this client
+	 * @param clientCapabilities the client capabilities to use during initialization (may
+	 * be null for defaults)
+	 */
+	AcpAsyncClient(AcpSession session, AcpClientTransport transport, AcpSchema.ClientCapabilities clientCapabilities) {
 		Assert.notNull(session, "Session must not be null");
 		Assert.notNull(transport, "Transport must not be null");
 		this.session = session;
 		this.transport = transport;
+		this.clientCapabilities = clientCapabilities != null ? clientCapabilities : new AcpSchema.ClientCapabilities();
 	}
 
 	// --------------------------
@@ -181,7 +200,7 @@ public class AcpAsyncClient {
 	 * @see #initialize(AcpSchema.InitializeRequest)
 	 */
 	public Mono<AcpSchema.InitializeResponse> initialize() {
-		return initialize(new AcpSchema.InitializeRequest(1, new AcpSchema.ClientCapabilities()));
+		return initialize(new AcpSchema.InitializeRequest(1, this.clientCapabilities));
 	}
 
 	/**

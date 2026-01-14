@@ -4,6 +4,8 @@
 
 package com.agentclientprotocol.sdk.agent;
 
+import java.util.Optional;
+
 import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
 
@@ -28,6 +30,10 @@ class DefaultSyncPromptContext implements SyncPromptContext {
 	DefaultSyncPromptContext(PromptContext asyncContext) {
 		this.asyncContext = asyncContext;
 	}
+
+	// ========================================================================
+	// Low-Level API
+	// ========================================================================
 
 	@Override
 	public void sendUpdate(String sessionId, AcpSchema.SessionUpdate update) {
@@ -77,6 +83,72 @@ class DefaultSyncPromptContext implements SyncPromptContext {
 	@Override
 	public NegotiatedCapabilities getClientCapabilities() {
 		return asyncContext.getClientCapabilities();
+	}
+
+	// ========================================================================
+	// Convenience API
+	// ========================================================================
+
+	@Override
+	public String getSessionId() {
+		return asyncContext.getSessionId();
+	}
+
+	@Override
+	public void sendMessage(String text) {
+		asyncContext.sendMessage(text).block();
+	}
+
+	@Override
+	public void sendThought(String text) {
+		asyncContext.sendThought(text).block();
+	}
+
+	@Override
+	public String readFile(String path) {
+		return asyncContext.readFile(path).block();
+	}
+
+	@Override
+	public String readFile(String path, Integer startLine, Integer lineCount) {
+		return asyncContext.readFile(path, startLine, lineCount).block();
+	}
+
+	@Override
+	public Optional<String> tryReadFile(String path) {
+		try {
+			String content = readFile(path);
+			return Optional.ofNullable(content);
+		}
+		catch (Exception e) {
+			return Optional.empty();
+		}
+	}
+
+	@Override
+	public void writeFile(String path, String content) {
+		asyncContext.writeFile(path, content).block();
+	}
+
+	@Override
+	public boolean askPermission(String action) {
+		Boolean result = asyncContext.askPermission(action).block();
+		return result != null && result;
+	}
+
+	@Override
+	public String askChoice(String question, String... options) {
+		return asyncContext.askChoice(question, options).block();
+	}
+
+	@Override
+	public CommandResult execute(String... commandAndArgs) {
+		return asyncContext.execute(commandAndArgs).block();
+	}
+
+	@Override
+	public CommandResult execute(Command command) {
+		return asyncContext.execute(command).block();
 	}
 
 }

@@ -137,7 +137,7 @@ class DefaultAcpAsyncAgent implements AcpAsyncAgent {
 							new TypeRef<AcpSchema.PromptRequest>() {
 							});
 					// Create PromptContext that wraps this agent, giving handler access to all capabilities
-					PromptContext context = new DefaultPromptContext(this);
+					PromptContext context = new DefaultPromptContext(this, request.sessionId());
 					return promptHandler.handle(request, context)
 						.cast(Object.class);
 				});

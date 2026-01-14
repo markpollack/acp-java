@@ -213,6 +213,24 @@ public final class AcpSchema {
 				List<AuthMethod> authMethods) {
 			this(protocolVersion, agentCapabilities, authMethods, null);
 		}
+
+		/**
+		 * Creates a default successful initialization response.
+		 * Uses protocol version 1 and default agent capabilities.
+		 * @return A default InitializeResponse
+		 */
+		public static InitializeResponse ok() {
+			return new InitializeResponse(1, new AgentCapabilities(), null);
+		}
+
+		/**
+		 * Creates a successful initialization response with the given capabilities.
+		 * @param capabilities The agent capabilities to advertise
+		 * @return An InitializeResponse with the specified capabilities
+		 */
+		public static InitializeResponse ok(AgentCapabilities capabilities) {
+			return new InitializeResponse(1, capabilities, null);
+		}
 	}
 
 	/**
@@ -305,6 +323,33 @@ public final class AcpSchema {
 			@JsonProperty("_meta") Map<String, Object> meta) {
 		public PromptResponse(StopReason stopReason) {
 			this(stopReason, null);
+		}
+
+		/**
+		 * Creates a response indicating the agent has finished its turn.
+		 * @return A PromptResponse with END_TURN stop reason
+		 */
+		public static PromptResponse endTurn() {
+			return new PromptResponse(StopReason.END_TURN);
+		}
+
+		/**
+		 * Creates a response indicating the agent has finished its turn with a text result.
+		 * Note: The text content should be sent via the context before returning this response.
+		 * @param text The text (for documentation purposes; actual content sent via context)
+		 * @return A PromptResponse with END_TURN stop reason
+		 */
+		public static PromptResponse text(String text) {
+			// Text content should be sent via context.sendMessage() before returning
+			return new PromptResponse(StopReason.END_TURN);
+		}
+
+		/**
+		 * Creates a response indicating the agent refused the request.
+		 * @return A PromptResponse with REFUSAL stop reason
+		 */
+		public static PromptResponse refusal() {
+			return new PromptResponse(StopReason.REFUSAL);
 		}
 	}
 

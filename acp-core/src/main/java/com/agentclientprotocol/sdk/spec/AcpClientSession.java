@@ -5,6 +5,8 @@
 package com.agentclientprotocol.sdk.spec;
 
 import io.modelcontextprotocol.json.TypeRef;
+import com.agentclientprotocol.sdk.error.AcpErrorCodes;
+import com.agentclientprotocol.sdk.error.AcpProtocolException;
 import com.agentclientprotocol.sdk.util.Assert;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
@@ -181,8 +183,18 @@ public class AcpClientSession implements AcpSession {
 			logger.debug("Received request: {}", request);
 			logger.trace("Incoming request method='{}' id={}", request.method(), request.id());
 			handleIncomingRequest(request).onErrorResume(error -> {
+				// Preserve error codes from AcpProtocolException, wrap others in INTERNAL_ERROR
+				int errorCode;
+				Object errorData = null;
+				if (error instanceof AcpProtocolException protocolException) {
+					errorCode = protocolException.getCode();
+					errorData = protocolException.getData();
+				}
+				else {
+					errorCode = AcpErrorCodes.INTERNAL_ERROR;
+				}
 				var errorResponse = new AcpSchema.JSONRPCResponse(AcpSchema.JSONRPC_VERSION, request.id(), null,
-						new AcpSchema.JSONRPCError(-32603, error.getMessage(), null));
+						new AcpSchema.JSONRPCError(errorCode, error.getMessage(), errorData));
 				return Mono.just(errorResponse);
 			}).flatMap(this.transport::sendMessage).onErrorComplete(t -> {
 				logger.warn("Issue sending response to the agent, ", t);

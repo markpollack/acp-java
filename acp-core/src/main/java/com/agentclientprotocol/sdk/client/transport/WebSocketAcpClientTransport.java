@@ -156,12 +156,20 @@ public class WebSocketAcpClientTransport implements AcpClientTransport {
 			logger.error("Failed to connect to WebSocket server at {}", serverUri, e);
 			isConnected.set(false);
 			exceptionHandler.accept(e);
+		}).doOnCancel(() -> {
+			logger.debug("WebSocket connection cancelled");
+			isConnected.set(false);
 		}).then();
 	}
 
 	private void handleIncomingMessages(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
 		this.inboundSink.asFlux()
 			.flatMap(message -> Mono.just(message).transform(handler))
+			.doOnNext(response -> {
+				if (response != null) {
+					this.outboundSink.tryEmitNext(response);
+				}
+			})
 			.doOnTerminate(() -> {
 				this.outboundSink.tryEmitComplete();
 			})

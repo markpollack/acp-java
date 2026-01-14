@@ -16,6 +16,8 @@ import java.util.function.Function;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
+import com.agentclientprotocol.sdk.error.AcpErrorCodes;
+import com.agentclientprotocol.sdk.error.AcpProtocolException;
 import com.agentclientprotocol.sdk.util.Assert;
 import io.modelcontextprotocol.json.TypeRef;
 import org.slf4j.Logger;
@@ -188,8 +190,18 @@ public class AcpAgentSession implements AcpSession {
 		else if (message instanceof AcpSchema.JSONRPCRequest request) {
 			logger.debug("Received request: {}", request);
 			return handleIncomingRequest(request).onErrorResume(error -> {
+				// Preserve error codes from AcpProtocolException, wrap others in INTERNAL_ERROR
+				int errorCode;
+				Object errorData = null;
+				if (error instanceof AcpProtocolException protocolException) {
+					errorCode = protocolException.getCode();
+					errorData = protocolException.getData();
+				}
+				else {
+					errorCode = AcpErrorCodes.INTERNAL_ERROR;
+				}
 				var errorResponse = new AcpSchema.JSONRPCResponse(AcpSchema.JSONRPC_VERSION, request.id(), null,
-						new AcpSchema.JSONRPCError(-32603, error.getMessage(), null));
+						new AcpSchema.JSONRPCError(errorCode, error.getMessage(), errorData));
 				return Mono.just(errorResponse);
 			}).map(response -> (AcpSchema.JSONRPCMessage) response);
 		}

@@ -4,6 +4,8 @@
 
 package com.agentclientprotocol.sdk.agent;
 
+import java.util.Optional;
+
 import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
 import com.agentclientprotocol.sdk.spec.AcpSchema;
 
@@ -145,5 +147,99 @@ public interface SyncPromptContext {
 	 * @return the negotiated client capabilities, or null if not yet initialized
 	 */
 	NegotiatedCapabilities getClientCapabilities();
+
+	// ========================================================================
+	// Convenience API
+	// ========================================================================
+
+	/**
+	 * Returns the session ID for this prompt invocation.
+	 * @return the session ID
+	 */
+	String getSessionId();
+
+	/**
+	 * Sends a message to the client as an agent message chunk.
+	 * This is a convenience method that wraps the text in the appropriate
+	 * session update structure.
+	 * @param text The message text to send
+	 */
+	void sendMessage(String text);
+
+	/**
+	 * Sends a thought to the client as an agent thought chunk.
+	 * Thoughts are typically displayed differently than messages,
+	 * showing the agent's reasoning process.
+	 * @param text The thought text to send
+	 */
+	void sendThought(String text);
+
+	/**
+	 * Reads a text file from the client's file system.
+	 * @param path The path to the file
+	 * @return The file content
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support file reading
+	 */
+	String readFile(String path);
+
+	/**
+	 * Reads a portion of a text file from the client's file system.
+	 * @param path The path to the file
+	 * @param startLine The line number to start reading from (0-indexed, null for beginning)
+	 * @param lineCount The number of lines to read (null for all remaining)
+	 * @return The file content
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support file reading
+	 */
+	String readFile(String path, Integer startLine, Integer lineCount);
+
+	/**
+	 * Attempts to read a text file, returning empty if the file cannot be read
+	 * or the client doesn't support file reading.
+	 * @param path The path to the file
+	 * @return Optional containing the file content, or empty if unavailable
+	 */
+	Optional<String> tryReadFile(String path);
+
+	/**
+	 * Writes content to a text file on the client's file system.
+	 * @param path The path to the file
+	 * @param content The content to write
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support file writing
+	 */
+	void writeFile(String path, String content);
+
+	/**
+	 * Asks the client for permission to perform an action.
+	 * Presents a simple Allow/Deny choice.
+	 * @param action A description of the action to request permission for
+	 * @return true if the user allowed the action, false otherwise
+	 */
+	boolean askPermission(String action);
+
+	/**
+	 * Asks the client to choose from multiple options.
+	 * @param question The question to ask
+	 * @param options The available options (at least 2)
+	 * @return The selected option text, or null if cancelled
+	 */
+	String askChoice(String question, String... options);
+
+	/**
+	 * Executes a command in a terminal and waits for completion.
+	 * The terminal is automatically released after execution.
+	 * @param commandAndArgs The command and arguments to execute
+	 * @return The command result containing output and exit code
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support terminals
+	 */
+	CommandResult execute(String... commandAndArgs);
+
+	/**
+	 * Executes a command with options and waits for completion.
+	 * The terminal is automatically released after execution.
+	 * @param command The command configuration
+	 * @return The command result containing output and exit code
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support terminals
+	 */
+	CommandResult execute(Command command);
 
 }

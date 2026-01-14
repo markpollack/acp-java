@@ -151,4 +151,93 @@ public interface PromptContext {
 	 */
 	NegotiatedCapabilities getClientCapabilities();
 
+	// ========================================================================
+	// Convenience API
+	// ========================================================================
+
+	/**
+	 * Returns the session ID for this prompt invocation.
+	 * @return the session ID
+	 */
+	String getSessionId();
+
+	/**
+	 * Sends a message to the client as an agent message chunk.
+	 * This is a convenience method that wraps the text in the appropriate
+	 * session update structure.
+	 * @param text The message text to send
+	 * @return A Mono that completes when the message is sent
+	 */
+	Mono<Void> sendMessage(String text);
+
+	/**
+	 * Sends a thought to the client as an agent thought chunk.
+	 * Thoughts are typically displayed differently than messages,
+	 * showing the agent's reasoning process.
+	 * @param text The thought text to send
+	 * @return A Mono that completes when the thought is sent
+	 */
+	Mono<Void> sendThought(String text);
+
+	/**
+	 * Reads a text file from the client's file system.
+	 * @param path The path to the file
+	 * @return A Mono containing the file content
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support file reading
+	 */
+	Mono<String> readFile(String path);
+
+	/**
+	 * Reads a portion of a text file from the client's file system.
+	 * @param path The path to the file
+	 * @param startLine The line number to start reading from (0-indexed, null for beginning)
+	 * @param lineCount The number of lines to read (null for all remaining)
+	 * @return A Mono containing the file content
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support file reading
+	 */
+	Mono<String> readFile(String path, Integer startLine, Integer lineCount);
+
+	/**
+	 * Writes content to a text file on the client's file system.
+	 * @param path The path to the file
+	 * @param content The content to write
+	 * @return A Mono that completes when the file is written
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support file writing
+	 */
+	Mono<Void> writeFile(String path, String content);
+
+	/**
+	 * Asks the client for permission to perform an action.
+	 * Presents a simple Allow/Deny choice.
+	 * @param action A description of the action to request permission for
+	 * @return A Mono containing true if allowed, false otherwise
+	 */
+	Mono<Boolean> askPermission(String action);
+
+	/**
+	 * Asks the client to choose from multiple options.
+	 * @param question The question to ask
+	 * @param options The available options (at least 2)
+	 * @return A Mono containing the selected option text, or null if cancelled
+	 */
+	Mono<String> askChoice(String question, String... options);
+
+	/**
+	 * Executes a command in a terminal and waits for completion.
+	 * The terminal is automatically released after execution.
+	 * @param commandAndArgs The command and arguments to execute
+	 * @return A Mono containing the command result
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support terminals
+	 */
+	Mono<CommandResult> execute(String... commandAndArgs);
+
+	/**
+	 * Executes a command with options and waits for completion.
+	 * The terminal is automatically released after execution.
+	 * @param command The command configuration
+	 * @return A Mono containing the command result
+	 * @throws com.agentclientprotocol.sdk.error.AcpCapabilityException if client doesn't support terminals
+	 */
+	Mono<CommandResult> execute(Command command);
+
 }
