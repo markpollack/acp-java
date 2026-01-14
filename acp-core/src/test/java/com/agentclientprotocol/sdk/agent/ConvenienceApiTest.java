@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.agentclientprotocol.sdk.client.AcpAsyncClient;
@@ -509,6 +510,56 @@ class ConvenienceApiTest {
 		client.prompt(new PromptRequest("cmd-session", List.of(new TextContent("test")))).block(TIMEOUT);
 
 		assertThat(capturedCwd.get()).isEqualTo("/project");
+
+		client.closeGracefully().block(TIMEOUT);
+		agent.closeGracefully();
+	}
+
+	@Test
+	void executeReleasesTerminalBeforeReturning() throws Exception {
+		// This test verifies the fix for the race condition where releaseTerminal
+		// was called with fire-and-forget .subscribe() instead of being awaited
+		AtomicBoolean releaseCalledBeforeReturn = new AtomicBoolean(false);
+		AtomicBoolean executeReturned = new AtomicBoolean(false);
+
+		AcpSyncAgent agent = AcpAgent.sync(transportPair.agentTransport())
+			.requestTimeout(TIMEOUT)
+			.initializeHandler(req -> InitializeResponse.ok())
+			.newSessionHandler(req -> new NewSessionResponse("release-test", null, null))
+			.promptHandler((request, context) -> {
+				context.execute("echo", "test");
+				// After execute() returns, releaseTerminal should have been called
+				executeReturned.set(true);
+				return PromptResponse.endTurn();
+			})
+			.build();
+
+		AcpAsyncClient client = AcpClient.async(transportPair.clientTransport())
+			.requestTimeout(TIMEOUT)
+			.createTerminalHandler(req -> Mono.just(new CreateTerminalResponse("term-rel")))
+			.waitForTerminalExitHandler(req -> Mono.just(new WaitForTerminalExitResponse(0, null)))
+			.terminalOutputHandler(req -> Mono.just(new TerminalOutputResponse("", false, null)))
+			.releaseTerminalHandler(req -> {
+				// Release should be called BEFORE execute() returns
+				if (!executeReturned.get()) {
+					releaseCalledBeforeReturn.set(true);
+				}
+				return Mono.just(new ReleaseTerminalResponse());
+			})
+			.build();
+
+		agent.start();
+		Thread.sleep(100);
+
+		ClientCapabilities clientCaps = new ClientCapabilities(null, true);
+		client.initialize(new InitializeRequest(1, clientCaps)).block(TIMEOUT);
+		client.newSession(new NewSessionRequest("/workspace", List.of())).block(TIMEOUT);
+		client.prompt(new PromptRequest("release-test", List.of(new TextContent("test")))).block(TIMEOUT);
+
+		// Verify that releaseTerminal was called before execute() returned
+		assertThat(releaseCalledBeforeReturn.get())
+			.as("releaseTerminal should be called before execute() returns (not fire-and-forget)")
+			.isTrue();
 
 		client.closeGracefully().block(TIMEOUT);
 		agent.closeGracefully();

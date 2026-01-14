@@ -207,12 +207,15 @@ class DefaultPromptContext implements PromptContext {
 				command.cwd(), envList, command.outputByteLimit()))
 			.flatMap(createResp -> {
 				String terminalId = createResp.terminalId();
+				ReleaseTerminalRequest releaseReq = new ReleaseTerminalRequest(sessionId, terminalId);
 
 				return waitForTerminalExit(new WaitForTerminalExitRequest(sessionId, terminalId))
 						.flatMap(exitResp -> getTerminalOutput(new TerminalOutputRequest(sessionId, terminalId))
 								.map(outputResp -> new CommandResult(outputResp.output(), exitResp.exitCode(), false)))
-						.doFinally(signal -> releaseTerminal(new ReleaseTerminalRequest(sessionId, terminalId))
-								.subscribe());
+						// Release terminal after getting result, then return result
+						.flatMap(result -> releaseTerminal(releaseReq).thenReturn(result))
+						// On error, still release terminal before propagating error
+						.onErrorResume(error -> releaseTerminal(releaseReq).then(Mono.error(error)));
 			});
 	}
 
