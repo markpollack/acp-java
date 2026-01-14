@@ -14,7 +14,9 @@
     <url>https://github.com/agentclientprotocol/java-sdk</url>
 
     <modules>
+        <module>acp-annotations</module>
         <module>acp-core</module>
+        <module>acp-agent-support</module>
         <module>acp-test</module>
         <module>acp-websocket-jetty</module>
     </modules>
