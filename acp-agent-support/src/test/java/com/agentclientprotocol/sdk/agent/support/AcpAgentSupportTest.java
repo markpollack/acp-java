@@ -10,17 +10,25 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.agentclientprotocol.sdk.agent.SyncPromptContext;
 import com.agentclientprotocol.sdk.annotation.AcpAgent;
+import com.agentclientprotocol.sdk.annotation.Cancel;
 import com.agentclientprotocol.sdk.annotation.Initialize;
+import com.agentclientprotocol.sdk.annotation.LoadSession;
 import com.agentclientprotocol.sdk.annotation.NewSession;
 import com.agentclientprotocol.sdk.annotation.Prompt;
+import com.agentclientprotocol.sdk.annotation.SetSessionMode;
 import com.agentclientprotocol.sdk.client.AcpAsyncClient;
 import com.agentclientprotocol.sdk.client.AcpClient;
+import com.agentclientprotocol.sdk.spec.AcpSchema.CancelNotification;
 import com.agentclientprotocol.sdk.spec.AcpSchema.InitializeRequest;
 import com.agentclientprotocol.sdk.spec.AcpSchema.InitializeResponse;
+import com.agentclientprotocol.sdk.spec.AcpSchema.LoadSessionRequest;
+import com.agentclientprotocol.sdk.spec.AcpSchema.LoadSessionResponse;
 import com.agentclientprotocol.sdk.spec.AcpSchema.NewSessionRequest;
 import com.agentclientprotocol.sdk.spec.AcpSchema.NewSessionResponse;
 import com.agentclientprotocol.sdk.spec.AcpSchema.PromptRequest;
 import com.agentclientprotocol.sdk.spec.AcpSchema.PromptResponse;
+import com.agentclientprotocol.sdk.spec.AcpSchema.SetSessionModeRequest;
+import com.agentclientprotocol.sdk.spec.AcpSchema.SetSessionModeResponse;
 import com.agentclientprotocol.sdk.spec.AcpSchema.TextContent;
 import com.agentclientprotocol.sdk.test.InMemoryTransportPair;
 
@@ -225,6 +233,140 @@ class AcpAgentSupportTest {
 
 		assertThat(handlerCalled.get()).isTrue();
 		assertThat(resp.stopReason()).isNotNull();
+	}
+
+	@Test
+	void loadSessionHandlerInvoked() throws Exception {
+		AtomicReference<String> loadedSessionId = new AtomicReference<>();
+
+		@AcpAgent
+		class LoadSessionAgent {
+
+			@Initialize
+			InitializeResponse init() {
+				return InitializeResponse.ok();
+			}
+
+			@LoadSession
+			LoadSessionResponse loadSession(LoadSessionRequest req) {
+				loadedSessionId.set(req.sessionId());
+				return new LoadSessionResponse(null, null);
+			}
+
+		}
+
+		agentSupport = AcpAgentSupport.create(new LoadSessionAgent())
+				.transport(transportPair.agentTransport())
+				.requestTimeout(TIMEOUT)
+				.build();
+
+		agentSupport.start();
+		Thread.sleep(100);
+
+		client = AcpClient.async(transportPair.clientTransport())
+				.requestTimeout(TIMEOUT)
+				.build();
+
+		client.initialize(new InitializeRequest(1, null)).block(TIMEOUT);
+		LoadSessionResponse resp = client.loadSession(new LoadSessionRequest("existing-session", "/workspace", List.of()))
+				.block(TIMEOUT);
+
+		assertThat(loadedSessionId.get()).isEqualTo("existing-session");
+		assertThat(resp).isNotNull();
+	}
+
+	@Test
+	void setSessionModeHandlerInvoked() throws Exception {
+		AtomicReference<String> receivedModeId = new AtomicReference<>();
+
+		@AcpAgent
+		class SetModeAgent {
+
+			@Initialize
+			InitializeResponse init() {
+				return InitializeResponse.ok();
+			}
+
+			@NewSession
+			NewSessionResponse newSession() {
+				return new NewSessionResponse("mode-session", null, null);
+			}
+
+			@SetSessionMode
+			SetSessionModeResponse setMode(SetSessionModeRequest req) {
+				receivedModeId.set(req.modeId());
+				return new SetSessionModeResponse();
+			}
+
+		}
+
+		agentSupport = AcpAgentSupport.create(new SetModeAgent())
+				.transport(transportPair.agentTransport())
+				.requestTimeout(TIMEOUT)
+				.build();
+
+		agentSupport.start();
+		Thread.sleep(100);
+
+		client = AcpClient.async(transportPair.clientTransport())
+				.requestTimeout(TIMEOUT)
+				.build();
+
+		client.initialize(new InitializeRequest(1, null)).block(TIMEOUT);
+		client.newSession(new NewSessionRequest("/workspace", List.of())).block(TIMEOUT);
+		client.setSessionMode(new SetSessionModeRequest("mode-session", "code-review")).block(TIMEOUT);
+
+		assertThat(receivedModeId.get()).isEqualTo("code-review");
+	}
+
+	// Note: setSessionModel test requires client API support which is not yet implemented
+	// The @SetSessionModel annotation and handler wiring is in place, but the client
+	// doesn't have a setSessionModel() method yet
+
+	@Test
+	void cancelHandlerInvoked() throws Exception {
+		AtomicReference<String> cancelledSessionId = new AtomicReference<>();
+
+		@AcpAgent
+		class CancelAgent {
+
+			@Initialize
+			InitializeResponse init() {
+				return InitializeResponse.ok();
+			}
+
+			@NewSession
+			NewSessionResponse newSession() {
+				return new NewSessionResponse("cancel-session", null, null);
+			}
+
+			@Cancel
+			void onCancel(CancelNotification notification) {
+				cancelledSessionId.set(notification.sessionId());
+			}
+
+		}
+
+		agentSupport = AcpAgentSupport.create(new CancelAgent())
+				.transport(transportPair.agentTransport())
+				.requestTimeout(TIMEOUT)
+				.build();
+
+		agentSupport.start();
+		Thread.sleep(100);
+
+		client = AcpClient.async(transportPair.clientTransport())
+				.requestTimeout(TIMEOUT)
+				.build();
+
+		client.initialize(new InitializeRequest(1, null)).block(TIMEOUT);
+		client.newSession(new NewSessionRequest("/workspace", List.of())).block(TIMEOUT);
+		client.cancel(new CancelNotification("cancel-session")).block(TIMEOUT);
+
+		// Give time for the notification to be processed
+		Thread.sleep(100);
+
+		assertThat(cancelledSessionId.get()).isEqualTo("cancel-session");
 	}
 
 	// Simple test agent

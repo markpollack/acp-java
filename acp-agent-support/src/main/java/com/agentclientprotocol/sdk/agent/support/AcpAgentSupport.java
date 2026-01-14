@@ -26,23 +26,38 @@ import com.agentclientprotocol.sdk.agent.support.interceptor.AcpInterceptor;
 import com.agentclientprotocol.sdk.agent.support.interceptor.InterceptorChain;
 import com.agentclientprotocol.sdk.agent.support.resolver.ArgumentResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.ArgumentResolverComposite;
+import com.agentclientprotocol.sdk.agent.support.resolver.CancelNotificationResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.CapabilitiesResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.InitializeRequestResolver;
+import com.agentclientprotocol.sdk.agent.support.resolver.LoadSessionRequestResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.NewSessionRequestResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.PromptContextResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.PromptRequestResolver;
 import com.agentclientprotocol.sdk.agent.support.resolver.SessionIdResolver;
+import com.agentclientprotocol.sdk.agent.support.resolver.SetSessionModeRequestResolver;
+import com.agentclientprotocol.sdk.agent.support.resolver.SetSessionModelRequestResolver;
+import com.agentclientprotocol.sdk.annotation.Cancel;
 import com.agentclientprotocol.sdk.annotation.Initialize;
+import com.agentclientprotocol.sdk.annotation.LoadSession;
 import com.agentclientprotocol.sdk.annotation.NewSession;
 import com.agentclientprotocol.sdk.annotation.Prompt;
+import com.agentclientprotocol.sdk.annotation.SetSessionMode;
+import com.agentclientprotocol.sdk.annotation.SetSessionModel;
 import com.agentclientprotocol.sdk.capabilities.NegotiatedCapabilities;
 import com.agentclientprotocol.sdk.spec.AcpAgentTransport;
+import com.agentclientprotocol.sdk.spec.AcpSchema.CancelNotification;
 import com.agentclientprotocol.sdk.spec.AcpSchema.InitializeRequest;
 import com.agentclientprotocol.sdk.spec.AcpSchema.InitializeResponse;
+import com.agentclientprotocol.sdk.spec.AcpSchema.LoadSessionRequest;
+import com.agentclientprotocol.sdk.spec.AcpSchema.LoadSessionResponse;
 import com.agentclientprotocol.sdk.spec.AcpSchema.NewSessionRequest;
 import com.agentclientprotocol.sdk.spec.AcpSchema.NewSessionResponse;
 import com.agentclientprotocol.sdk.spec.AcpSchema.PromptRequest;
 import com.agentclientprotocol.sdk.spec.AcpSchema.PromptResponse;
+import com.agentclientprotocol.sdk.spec.AcpSchema.SetSessionModeRequest;
+import com.agentclientprotocol.sdk.spec.AcpSchema.SetSessionModeResponse;
+import com.agentclientprotocol.sdk.spec.AcpSchema.SetSessionModelRequest;
+import com.agentclientprotocol.sdk.spec.AcpSchema.SetSessionModelResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,12 +203,38 @@ public class AcpAgentSupport {
 					java.util.UUID.randomUUID().toString(), null, null));
 		}
 
+		// LoadSession handler
+		AcpHandlerMethod loadSessionHandler = handlers.get("session/load");
+		if (loadSessionHandler != null) {
+			agentBuilder.loadSessionHandler(req -> invokeHandler(loadSessionHandler, req, req.sessionId(), null, null));
+		}
+
 		// Prompt handler
 		AcpHandlerMethod promptHandler = handlers.get("session/prompt");
 		if (promptHandler != null) {
 			agentBuilder.promptHandler((req, syncContext) -> {
 				NegotiatedCapabilities caps = syncContext.getClientCapabilities();
 				return invokeHandler(promptHandler, req, req.sessionId(), syncContext, caps);
+			});
+		}
+
+		// SetSessionMode handler
+		AcpHandlerMethod setModeHandler = handlers.get("session/set_mode");
+		if (setModeHandler != null) {
+			agentBuilder.setSessionModeHandler(req -> invokeHandler(setModeHandler, req, req.sessionId(), null, null));
+		}
+
+		// SetSessionModel handler
+		AcpHandlerMethod setModelHandler = handlers.get("session/set_model");
+		if (setModelHandler != null) {
+			agentBuilder.setSessionModelHandler(req -> invokeHandler(setModelHandler, req, req.sessionId(), null, null));
+		}
+
+		// Cancel handler
+		AcpHandlerMethod cancelHandler = handlers.get("session/cancel");
+		if (cancelHandler != null) {
+			agentBuilder.cancelHandler(notification -> {
+				invokeHandler(cancelHandler, notification, notification.sessionId(), null, null);
 			});
 		}
 	}
@@ -396,9 +437,25 @@ public class AcpAgentSupport {
 					handlers.put("session/new", new AcpHandlerMethod(beanSupplier, method, "session/new"));
 					log.debug("Discovered @NewSession handler: {}", method.getName());
 				}
+				if (method.isAnnotationPresent(LoadSession.class)) {
+					handlers.put("session/load", new AcpHandlerMethod(beanSupplier, method, "session/load"));
+					log.debug("Discovered @LoadSession handler: {}", method.getName());
+				}
 				if (method.isAnnotationPresent(Prompt.class)) {
 					handlers.put("session/prompt", new AcpHandlerMethod(beanSupplier, method, "session/prompt"));
 					log.debug("Discovered @Prompt handler: {}", method.getName());
+				}
+				if (method.isAnnotationPresent(SetSessionMode.class)) {
+					handlers.put("session/set_mode", new AcpHandlerMethod(beanSupplier, method, "session/set_mode"));
+					log.debug("Discovered @SetSessionMode handler: {}", method.getName());
+				}
+				if (method.isAnnotationPresent(SetSessionModel.class)) {
+					handlers.put("session/set_model", new AcpHandlerMethod(beanSupplier, method, "session/set_model"));
+					log.debug("Discovered @SetSessionModel handler: {}", method.getName());
+				}
+				if (method.isAnnotationPresent(Cancel.class)) {
+					handlers.put("session/cancel", new AcpHandlerMethod(beanSupplier, method, "session/cancel"));
+					log.debug("Discovered @Cancel handler: {}", method.getName());
 				}
 			}
 		}
@@ -408,7 +465,11 @@ public class AcpAgentSupport {
 			// Custom resolvers added via builder go first
 			argumentResolvers.addResolver(new InitializeRequestResolver());
 			argumentResolvers.addResolver(new NewSessionRequestResolver());
+			argumentResolvers.addResolver(new LoadSessionRequestResolver());
 			argumentResolvers.addResolver(new PromptRequestResolver());
+			argumentResolvers.addResolver(new SetSessionModeRequestResolver());
+			argumentResolvers.addResolver(new SetSessionModelRequestResolver());
+			argumentResolvers.addResolver(new CancelNotificationResolver());
 			argumentResolvers.addResolver(new PromptContextResolver());
 			argumentResolvers.addResolver(new SessionIdResolver());
 			argumentResolvers.addResolver(new CapabilitiesResolver());
