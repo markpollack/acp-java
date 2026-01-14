@@ -14,6 +14,7 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 - Async and sync APIs
 - Stdio and WebSocket transports
 - Capability negotiation and structured error handling
+- **[Annotation-based agents](acp-agent-support/README.md)** - Spring MVC-style `@AcpAgent`, `@Prompt` annotations
 
 ## Installation
 
@@ -23,6 +24,15 @@ The Agent Client Protocol (ACP) standardizes communication between code editors 
 <dependency>
     <groupId>com.agentclientprotocol</groupId>
     <artifactId>acp-core</artifactId>
+    <version>0.9.0</version>
+</dependency>
+```
+
+For annotation-based agent development:
+```xml
+<dependency>
+    <groupId>com.agentclientprotocol</groupId>
+    <artifactId>acp-agent-support</artifactId>
     <version>0.9.0</version>
 </dependency>
 ```
@@ -131,6 +141,44 @@ AcpAsyncAgent agent = AcpAgent.async(transport)
 // Start and await termination
 agent.start().then(agent.awaitTermination()).block();
 ```
+
+### 2c. Hello World Agent (Annotation-Based)
+
+For the simplest agent development experience, use annotations (see [full documentation](acp-agent-support/README.md)):
+
+```java
+import com.agentclientprotocol.sdk.annotation.*;
+import com.agentclientprotocol.sdk.agent.SyncPromptContext;
+import com.agentclientprotocol.sdk.agent.support.AcpAgentSupport;
+import com.agentclientprotocol.sdk.spec.AcpSchema.*;
+
+@AcpAgent
+class HelloAgent {
+
+    @Initialize
+    InitializeResponse init() {
+        return InitializeResponse.ok();
+    }
+
+    @NewSession
+    NewSessionResponse newSession() {
+        return new NewSessionResponse(UUID.randomUUID().toString(), null, null);
+    }
+
+    @Prompt
+    PromptResponse prompt(PromptRequest req, SyncPromptContext ctx) {
+        ctx.sendMessage("Hello from the agent!");
+        return PromptResponse.endTurn();
+    }
+}
+
+// Bootstrap and run
+AcpAgentSupport.create(new HelloAgent())
+    .transport(new StdioAcpAgentTransport())
+    .run();
+```
+
+This approach reduces boilerplate by ~50% compared to the builder API while producing identical runtime behavior.
 
 ---
 
@@ -316,6 +364,8 @@ agent.start().block();  // Starts WebSocket server on port 8080
 | `com.agentclientprotocol.sdk.spec` | Protocol types (`AcpSchema.*`) |
 | `com.agentclientprotocol.sdk.client` | Client SDK (`AcpClient`, `AcpAsyncClient`, `AcpSyncClient`) |
 | `com.agentclientprotocol.sdk.agent` | Agent SDK (`AcpAgent`, `AcpAsyncAgent`, `AcpSyncAgent`) |
+| `com.agentclientprotocol.sdk.agent.support` | Annotation-based agent runtime (`AcpAgentSupport`) |
+| `com.agentclientprotocol.sdk.annotation` | Agent annotations (`@AcpAgent`, `@Prompt`, etc.) |
 | `com.agentclientprotocol.sdk.capabilities` | Capability negotiation (`NegotiatedCapabilities`) |
 | `com.agentclientprotocol.sdk.error` | Exceptions (`AcpProtocolException`, `AcpCapabilityException`) |
 

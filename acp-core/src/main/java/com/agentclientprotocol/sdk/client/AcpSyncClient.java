@@ -237,6 +237,19 @@ public class AcpSyncClient implements AutoCloseable {
 		return this.delegate.setSessionMode(setModeRequest).block();
 	}
 
+	/**
+	 * Sets the AI model for the specified session.
+	 * <p>
+	 * This allows changing which AI model is used for subsequent prompts in the session.
+	 * </p>
+	 * @param setModelRequest the set model request with session ID and desired model
+	 * @return the response confirming the model change
+	 * @see AcpSchema#METHOD_SESSION_SET_MODEL
+	 */
+	public AcpSchema.SetSessionModelResponse setSessionModel(AcpSchema.SetSessionModelRequest setModelRequest) {
+		return this.delegate.setSessionModel(setModelRequest).block();
+	}
+
 	// --------------------------
 	// Prompt Interaction
 	// --------------------------
